@@ -128,13 +128,16 @@ export const AuthModal: React.FC = () => {
       }}
     >
       <div
+        className="animate-scale-in"
         style={{
           width: "100%",
           maxWidth: 480,
-          backgroundColor: "var(--bg-surface-1)",
-          border: "1px solid var(--border-hairline)",
-          borderRadius: 8,
-          boxShadow: "0 20px 40px rgba(0, 0, 0, 0.4)",
+          backgroundColor: "rgba(20, 23, 32, 0.88)",
+          backdropFilter: "blur(28px) saturate(190%)",
+          WebkitBackdropFilter: "blur(28px) saturate(190%)",
+          border: "1px solid rgba(255, 255, 255, 0.12)",
+          borderRadius: 16,
+          boxShadow: "0 30px 80px rgba(0, 0, 0, 0.6)",
           overflow: "hidden",
         }}
       >

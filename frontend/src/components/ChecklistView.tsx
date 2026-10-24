@@ -3,7 +3,6 @@ import {
   ExternalLink,
   ArrowRight,
   Loader2,
-  Sparkles,
   Bookmark,
   CheckCircle2,
   Check,
@@ -84,47 +83,46 @@ export const ChecklistView: React.FC<ChecklistViewProps> = ({ onAskAboutStep }) 
   };
 
   return (
-    <div style={{ maxWidth: 1000, margin: "2rem auto", padding: "0 1.5rem" }}>
-      {/* Header */}
-      <div style={{ marginBottom: "1.75rem" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.3rem" }}>
-          <Sparkles size={18} color="var(--accent-brass)" />
-          <h1
-            style={{
-              fontSize: "1.6rem",
-              fontWeight: 600,
-              color: "var(--text-primary)",
-              letterSpacing: "-0.015em",
-            }}
-          >
-            Where Do I Start?
-          </h1>
-        </div>
-        <p style={{ fontSize: "0.88rem", color: "var(--text-secondary)" }}>
+    <div style={{ maxWidth: 960, margin: "2.5rem auto", padding: "0 1.5rem" }}>
+      {/* Header — Apple Minimal */}
+      <div style={{ marginBottom: "2rem" }}>
+        <h1
+          style={{
+            fontSize: "1.85rem",
+            fontWeight: 600,
+            color: "var(--text-primary)",
+            letterSpacing: "-0.03em",
+            marginBottom: "0.5rem",
+          }}
+        >
+          Where Do I Start?
+        </h1>
+        <p style={{ fontSize: "0.92rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
           An ordered 5-step contributor onboarding path derived strictly from the indexed repository documentation.
         </p>
       </div>
 
       {loading && (
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "2rem 0", color: "var(--text-muted)" }}>
-          <Loader2 size={16} className="animate-spin" />
-          <span>Analyzing indexed documentation and generating contributor checklist...</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", padding: "3rem 0", color: "var(--text-muted)" }}>
+          <Loader2 size={18} className="spin" />
+          <span style={{ fontSize: "0.9rem" }}>Analyzing repository docs and synthesizing onboarding path...</span>
         </div>
       )}
 
       {toastMsg && (
         <div
+          className="animate-fade-in"
           style={{
             padding: "0.65rem 1rem",
-            backgroundColor: "rgba(78, 159, 118, 0.15)",
-            border: "1px solid rgba(78, 159, 118, 0.35)",
-            borderRadius: 4,
+            backgroundColor: "rgba(78, 159, 118, 0.12)",
+            border: "1px solid rgba(78, 159, 118, 0.3)",
+            borderRadius: 8,
             color: "var(--accent-forest)",
             fontSize: "0.82rem",
-            marginBottom: "1rem",
+            marginBottom: "1.25rem",
             display: "flex",
             alignItems: "center",
-            gap: 6,
+            gap: 7,
           }}
         >
           <CheckCircle2 size={15} />
@@ -134,14 +132,15 @@ export const ChecklistView: React.FC<ChecklistViewProps> = ({ onAskAboutStep }) 
 
       {error && (
         <div
+          className="animate-fade-in"
           style={{
-            padding: "0.85rem 1rem",
-            backgroundColor: "var(--accent-terracotta-dim)",
-            border: "1px solid var(--accent-terracotta)",
-            borderRadius: 4,
+            padding: "0.85rem 1.1rem",
+            backgroundColor: "rgba(224, 122, 95, 0.12)",
+            border: "1px solid rgba(224, 122, 95, 0.25)",
+            borderRadius: 8,
             color: "var(--accent-terracotta)",
             fontSize: "0.85rem",
-            marginBottom: "1rem",
+            marginBottom: "1.25rem",
           }}
         >
           {error}
@@ -150,38 +149,36 @@ export const ChecklistView: React.FC<ChecklistViewProps> = ({ onAskAboutStep }) 
 
       {checklist && (
         <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-          {/* Progress summary banner */}
+          {/* Progress Summary Card — Apple Glass Panel */}
           <div
+            className="glass-panel"
             style={{
-              backgroundColor: "var(--bg-surface-1)",
-              border: "1px solid var(--border-hairline)",
-              borderRadius: 6,
-              padding: "1rem 1.25rem",
+              padding: "1.25rem 1.5rem",
+              borderRadius: 14,
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
               flexWrap: "wrap",
-              gap: "0.75rem",
+              gap: "1rem",
             }}
           >
             <div>
-              <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--text-primary)", display: "block" }}>
+              <span style={{ fontSize: "0.92rem", fontWeight: 600, color: "var(--text-primary)", display: "block", marginBottom: 3 }}>
                 Repository: {checklist.repository}
               </span>
-              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-                {checklist.covered_steps} of {checklist.total_steps} onboarding areas documented (
-                {Math.round((checklist.covered_steps / checklist.total_steps) * 100)}%) • You completed{" "}
-                {completedSteps.length} of {checklist.total_steps}
+              <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                {checklist.covered_steps} of {checklist.total_steps} onboarding areas documented ({Math.round((checklist.covered_steps / checklist.total_steps) * 100)}%) • {completedSteps.length} completed
               </span>
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+              {/* Progress Bar */}
               <div
                 style={{
                   width: 140,
                   height: 6,
-                  backgroundColor: "var(--bg-surface-2)",
-                  borderRadius: 3,
+                  backgroundColor: "rgba(255, 255, 255, 0.08)",
+                  borderRadius: 9999,
                   overflow: "hidden",
                 }}
               >
@@ -189,7 +186,8 @@ export const ChecklistView: React.FC<ChecklistViewProps> = ({ onAskAboutStep }) 
                   style={{
                     width: `${(checklist.covered_steps / checklist.total_steps) * 100}%`,
                     height: "100%",
-                    backgroundColor: "var(--accent-brass)",
+                    background: "linear-gradient(90deg, #D4A373 0%, #E4B589 100%)",
+                    transition: "width 0.4s var(--ease-apple)",
                   }}
                 />
               </div>
@@ -199,22 +197,26 @@ export const ChecklistView: React.FC<ChecklistViewProps> = ({ onAskAboutStep }) 
                 type="button"
                 onClick={handleSaveChecklist}
                 disabled={savingChecklist}
+                className={savedChecklist ? "glass-pill" : ""}
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "0.35rem",
-                  padding: "0.4rem 0.75rem",
-                  borderRadius: 4,
-                  backgroundColor: savedChecklist ? "rgba(78, 159, 118, 0.15)" : "var(--accent-brass)",
-                  border: savedChecklist ? "1px solid rgba(78, 159, 118, 0.35)" : "none",
+                  gap: "0.4rem",
+                  padding: "0.45rem 0.95rem",
+                  borderRadius: 9999,
+                  background: savedChecklist
+                    ? "rgba(78, 159, 118, 0.12)"
+                    : "linear-gradient(135deg, #E4B589 0%, #D4A373 100%)",
+                  border: savedChecklist ? "1px solid rgba(78, 159, 118, 0.3)" : "none",
                   color: savedChecklist ? "var(--accent-forest)" : "#121316",
                   fontSize: "0.78rem",
                   fontWeight: 600,
                   cursor: savingChecklist ? "wait" : "pointer",
+                  boxShadow: savedChecklist ? "none" : "0 2px 8px rgba(212, 163, 115, 0.25)",
                 }}
               >
                 {savingChecklist ? (
-                  <Loader2 size={13} className="animate-spin" />
+                  <Loader2 size={13} className="spin" />
                 ) : savedChecklist ? (
                   <Check size={13} />
                 ) : (
@@ -225,27 +227,25 @@ export const ChecklistView: React.FC<ChecklistViewProps> = ({ onAskAboutStep }) 
             </div>
           </div>
 
-          {/* Checklist cards */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+          {/* Checklist Cards — Apple Reminders Style */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
             {checklist.steps.map((step) => {
               const isChecked = completedSteps.includes(String(step.step_number));
               return (
                 <div
                   key={step.step_number}
+                  className="glass-card"
                   style={{
-                    backgroundColor: "var(--bg-surface-1)",
-                    border: `1px solid ${
-                      isChecked
-                        ? "rgba(78, 159, 118, 0.3)"
-                        : step.is_covered_in_docs
-                        ? "var(--border-hairline)"
-                        : "rgba(224, 122, 95, 0.3)"
-                    }`,
-                    borderRadius: 6,
-                    padding: "1.1rem 1.35rem",
+                    padding: "1.25rem 1.5rem",
+                    borderRadius: 12,
                     display: "flex",
                     flexDirection: "column",
-                    gap: "0.6rem",
+                    gap: "0.65rem",
+                    border: isChecked
+                      ? "1px solid rgba(78, 159, 118, 0.3)"
+                      : step.is_covered_in_docs
+                      ? "1px solid rgba(255, 255, 255, 0.08)"
+                      : "1px solid rgba(224, 122, 95, 0.25)",
                   }}
                 >
                   <div
@@ -257,33 +257,48 @@ export const ChecklistView: React.FC<ChecklistViewProps> = ({ onAskAboutStep }) 
                       gap: "0.5rem",
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => toggleStepCompleted(step.step_number)}
-                        style={{
-                          width: 16,
-                          height: 16,
-                          cursor: "pointer",
-                          accentColor: "var(--accent-forest)",
-                        }}
-                      />
-                      <div
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                      {/* Tactile Circular Checkmark */}
+                      <button
+                        type="button"
+                        onClick={() => toggleStepCompleted(step.step_number)}
                         style={{
                           width: 24,
                           height: 24,
-                          borderRadius: 12,
+                          borderRadius: "50%",
+                          border: isChecked
+                            ? "none"
+                            : "1.5px solid rgba(255, 255, 255, 0.25)",
+                          backgroundColor: isChecked ? "var(--accent-forest)" : "transparent",
+                          color: "#FFFFFF",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          fontSize: "0.75rem",
+                          cursor: "pointer",
+                          padding: 0,
+                          transition: "all 0.18s var(--ease-apple)",
+                          transform: isChecked ? "scale(1.05)" : "scale(1)",
+                        }}
+                        title={isChecked ? "Mark incomplete" : "Mark as completed"}
+                      >
+                        {isChecked ? <Check size={14} strokeWidth={2.8} /> : null}
+                      </button>
+
+                      <div
+                        style={{
+                          width: 22,
+                          height: 22,
+                          borderRadius: "50%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "0.72rem",
                           fontFamily: "var(--font-mono)",
-                          fontWeight: 600,
+                          fontWeight: 700,
                           backgroundColor: step.is_covered_in_docs
-                            ? "var(--accent-brass)"
-                            : "var(--bg-surface-2)",
-                          color: step.is_covered_in_docs ? "var(--bg-canvas)" : "var(--text-muted)",
+                            ? "rgba(212, 163, 115, 0.15)"
+                            : "rgba(255, 255, 255, 0.06)",
+                          color: step.is_covered_in_docs ? "var(--accent-brass)" : "var(--text-muted)",
                         }}
                       >
                         {step.step_number}
@@ -291,11 +306,12 @@ export const ChecklistView: React.FC<ChecklistViewProps> = ({ onAskAboutStep }) 
 
                       <h2
                         style={{
-                          fontSize: "0.95rem",
+                          fontSize: "0.98rem",
                           fontWeight: 600,
                           color: isChecked ? "var(--text-muted)" : "var(--text-primary)",
-                          letterSpacing: "-0.01em",
+                          letterSpacing: "-0.015em",
                           textDecoration: isChecked ? "line-through" : "none",
+                          transition: "all 0.2s ease",
                         }}
                       >
                         {step.title}
@@ -305,16 +321,17 @@ export const ChecklistView: React.FC<ChecklistViewProps> = ({ onAskAboutStep }) 
                     <span
                       style={{
                         fontSize: "0.7rem",
-                        padding: "2px 7px",
-                        borderRadius: 3,
+                        padding: "2px 8px",
+                        borderRadius: 9999,
                         fontFamily: "var(--font-mono)",
                         backgroundColor: step.is_covered_in_docs
-                          ? "var(--accent-forest-dim)"
-                          : "var(--accent-terracotta-dim)",
+                          ? "rgba(78, 159, 118, 0.14)"
+                          : "rgba(224, 122, 95, 0.14)",
                         color: step.is_covered_in_docs ? "var(--accent-forest)" : "var(--accent-terracotta)",
                         border: `1px solid ${
-                          step.is_covered_in_docs ? "var(--accent-forest)" : "var(--accent-terracotta)"
+                          step.is_covered_in_docs ? "rgba(78, 159, 118, 0.3)" : "rgba(224, 122, 95, 0.3)"
                         }`,
+                        fontWeight: 500,
                       }}
                     >
                       {step.is_covered_in_docs ? "Documented" : "Not Covered in Docs"}
@@ -323,10 +340,10 @@ export const ChecklistView: React.FC<ChecklistViewProps> = ({ onAskAboutStep }) 
 
                   <p
                     style={{
-                      fontSize: "0.85rem",
+                      fontSize: "0.88rem",
                       color: isChecked ? "var(--text-muted)" : "var(--text-secondary)",
-                      lineHeight: 1.55,
-                      marginLeft: 26,
+                      lineHeight: 1.6,
+                      marginLeft: 32,
                     }}
                   >
                     {step.description}
@@ -338,23 +355,25 @@ export const ChecklistView: React.FC<ChecklistViewProps> = ({ onAskAboutStep }) 
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "space-between",
-                        marginTop: "0.4rem",
-                        paddingTop: "0.5rem",
-                        borderTop: "1px solid var(--border-hairline)",
+                        marginTop: "0.5rem",
+                        paddingTop: "0.65rem",
+                        borderTop: "1px solid rgba(255, 255, 255, 0.05)",
                         flexWrap: "wrap",
-                        gap: "0.5rem",
-                        marginLeft: 26,
+                        gap: "0.6rem",
+                        marginLeft: 32,
                       }}
                     >
                       <a
                         href={step.supporting_url || "#"}
                         target="_blank"
                         rel="noreferrer"
+                        className="glass-pill"
                         style={{
                           display: "flex",
                           alignItems: "center",
-                          gap: "0.3rem",
-                          fontSize: "0.75rem",
+                          gap: "0.35rem",
+                          padding: "3px 9px",
+                          fontSize: "0.74rem",
                           color: "var(--accent-brass)",
                           fontFamily: "var(--font-mono)",
                           textDecoration: "none",
@@ -371,21 +390,20 @@ export const ChecklistView: React.FC<ChecklistViewProps> = ({ onAskAboutStep }) 
                             `Explain step ${step.step_number} (${step.title}) based on ${step.supporting_file}`
                           )
                         }
+                        className="glass-pill"
                         style={{
                           display: "flex",
                           alignItems: "center",
-                          gap: "0.3rem",
-                          padding: "3px 8px",
-                          backgroundColor: "var(--bg-surface-2)",
-                          border: "1px solid var(--border-hairline)",
-                          borderRadius: 3,
-                          fontSize: "0.74rem",
+                          gap: "0.35rem",
+                          padding: "4px 10px",
+                          fontSize: "0.76rem",
                           color: "var(--text-primary)",
                           cursor: "pointer",
+                          fontWeight: 500,
                         }}
                       >
                         <span>Ask RAG about this step</span>
-                        <ArrowRight size={11} />
+                        <ArrowRight size={11} color="var(--accent-brass)" />
                       </button>
                     </div>
                   )}

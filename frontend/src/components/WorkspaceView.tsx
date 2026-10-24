@@ -30,7 +30,7 @@ const STARTER_PROMPTS = [
   "How do I set up a local development sandbox and install dependencies?",
   "What is the pull request convention and workflow for contributors?",
   "How do I run the automated test suite with pytest?",
-  "Does Flask natively provide async Redis session backends?", // Refusal test!
+  "Does Flask natively provide async Redis session backends?", // Verifiable Refusal Test
 ];
 
 export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
@@ -131,24 +131,22 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   };
 
   return (
-    <div style={{ maxWidth: 1200, margin: "2rem auto", padding: "0 1.5rem" }}>
-      {/* Intro Header */}
-      <div style={{ marginBottom: "1.75rem" }}>
+    <div style={{ maxWidth: 1100, margin: "2.5rem auto", padding: "0 1.5rem" }}>
+      {/* Intro Header — Apple Editorial Minimal */}
+      <div style={{ marginBottom: "2rem" }}>
         <h1
           style={{
-            fontSize: "1.6rem",
+            fontSize: "1.85rem",
             fontWeight: 600,
             color: "var(--text-primary)",
-            letterSpacing: "-0.015em",
-            marginBottom: "0.4rem",
+            letterSpacing: "-0.03em",
+            marginBottom: "0.5rem",
           }}
         >
           Ask the Field Guide
         </h1>
-        <p style={{ fontSize: "0.88rem", color: "var(--text-secondary)", maxWidth: 750 }}>
-          Grounded answers derived strictly from{" "}
-          {repository ? `${repository.owner}/${repository.repo}` : "repository"} documentation. Every answer
-          cites source files; unsupported inquiries are safely refused.{" "}
+        <p style={{ fontSize: "0.92rem", color: "var(--text-secondary)", maxWidth: 720, lineHeight: 1.6 }}>
+          Evidence-grounded answers derived strictly from {repository ? `${repository.owner}/${repository.repo}` : "repository"} documentation. Every claim cites authentic source lines; unsupported topics are safely refused.{" "}
           <button
             type="button"
             onClick={onSelectChecklistTab}
@@ -157,24 +155,25 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
               border: "none",
               color: "var(--accent-brass)",
               textDecoration: "underline",
+              textUnderlineOffset: "3px",
               cursor: "pointer",
-              fontSize: "0.88rem",
+              fontSize: "0.92rem",
+              fontWeight: 500,
               padding: 0,
             }}
           >
-            Or start with the 5-step onboarding checklist →
+            Or start with the 5-step onboarding guide →
           </button>
         </p>
       </div>
 
-      {/* Query Composer */}
+      {/* Query Composer — Apple Spotlight / Raycast Style */}
       <div
+        className="glass-panel"
         style={{
-          backgroundColor: "var(--bg-surface-1)",
-          border: "1px solid var(--border-hairline)",
-          borderRadius: 6,
-          padding: "1rem",
-          marginBottom: "1.5rem",
+          padding: "1.15rem 1.35rem",
+          marginBottom: "1.75rem",
+          borderRadius: 14,
         }}
       >
         <form
@@ -182,17 +181,18 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             e.preventDefault();
             handleSubmit();
           }}
-          style={{ display: "flex", gap: "0.75rem", alignItems: "flex-start" }}
+          style={{ display: "flex", gap: "0.85rem", alignItems: "flex-start" }}
         >
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              paddingTop: "0.3rem",
+              paddingTop: "0.35rem",
               color: "var(--accent-brass)",
+              opacity: 0.9,
             }}
           >
-            <Terminal size={18} />
+            <Terminal size={19} />
           </div>
 
           <textarea
@@ -204,7 +204,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 handleSubmit();
               }
             }}
-            placeholder="Ask about setup, contribution rules, tests, pull requests... (e.g. How do I set up a local virtualenv?)"
+            placeholder="Ask anything about this repo (e.g., How do I set up my dev environment and run tests?)..."
             rows={2}
             style={{
               flex: 1,
@@ -213,9 +213,10 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
               outline: "none",
               color: "var(--text-primary)",
               fontFamily: "var(--font-sans)",
-              fontSize: "0.95rem",
-              lineHeight: 1.5,
+              fontSize: "0.98rem",
+              lineHeight: 1.6,
               resize: "none",
+              letterSpacing: "-0.01em",
             }}
           />
 
@@ -223,28 +224,34 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             type="submit"
             disabled={loading || !question.trim()}
             style={{
-              padding: "0.55rem 1.15rem",
-              backgroundColor: "var(--accent-brass)",
-              color: "var(--bg-canvas)",
-              border: "1px solid var(--accent-brass)",
-              borderRadius: 4,
+              padding: "0.55rem 1.25rem",
+              borderRadius: 9999,
+              background: question.trim()
+                ? "linear-gradient(135deg, #E4B589 0%, #D4A373 100%)"
+                : "rgba(255, 255, 255, 0.08)",
+              color: question.trim() ? "#121316" : "var(--text-muted)",
+              border: "none",
               fontWeight: 600,
               fontSize: "0.85rem",
-              cursor: loading ? "wait" : "pointer",
+              cursor: loading ? "wait" : question.trim() ? "pointer" : "default",
               display: "flex",
               alignItems: "center",
-              gap: "0.4rem",
+              gap: "0.45rem",
+              boxShadow: question.trim() ? "0 2px 10px rgba(212, 163, 115, 0.28)" : "none",
+              transition: "all 0.2s var(--ease-apple)",
             }}
           >
-            {loading ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-            Inquire
+            {loading ? <Loader2 size={14} className="spin" /> : <Send size={14} />}
+            <span>Inquire</span>
           </button>
         </form>
 
-        {/* Starter suggestion chips */}
+        {/* Suggested Prompt Chips */}
         <div
           style={{
-            marginTop: "0.85rem",
+            marginTop: "1rem",
+            paddingTop: "0.85rem",
+            borderTop: "1px solid rgba(255, 255, 255, 0.05)",
             display: "flex",
             alignItems: "center",
             gap: "0.45rem",
@@ -262,14 +269,13 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 setQuestion(promptText);
                 handleSubmit(promptText);
               }}
+              className="glass-pill"
               style={{
-                fontSize: "0.73rem",
-                padding: "2px 8px",
-                borderRadius: 3,
-                backgroundColor: "var(--bg-surface-2)",
-                border: "1px solid var(--border-hairline)",
+                fontSize: "0.74rem",
+                padding: "3px 10px",
                 color: idx === 3 ? "var(--accent-terracotta)" : "var(--text-secondary)",
                 cursor: "pointer",
+                border: idx === 3 ? "1px solid rgba(224, 122, 95, 0.3)" : undefined,
               }}
             >
               {promptText}
@@ -281,17 +287,19 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
       {/* Save Toast Notification */}
       {saveToast && (
         <div
+          className="animate-fade-in"
           style={{
             padding: "0.65rem 1rem",
-            backgroundColor: "rgba(78, 159, 118, 0.15)",
-            border: "1px solid rgba(78, 159, 118, 0.35)",
-            borderRadius: 4,
+            backgroundColor: "rgba(78, 159, 118, 0.12)",
+            backdropFilter: "blur(12px)",
+            border: "1px solid rgba(78, 159, 118, 0.3)",
+            borderRadius: 8,
             color: "var(--accent-forest)",
             fontSize: "0.82rem",
-            marginBottom: "1rem",
+            marginBottom: "1.25rem",
             display: "flex",
             alignItems: "center",
-            gap: 6,
+            gap: 7,
           }}
         >
           <CheckCircle2 size={15} />
@@ -302,11 +310,12 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
       {/* Error notification */}
       {error && (
         <div
+          className="animate-fade-in"
           style={{
-            padding: "0.85rem 1rem",
-            backgroundColor: "var(--accent-terracotta-dim)",
-            border: "1px solid var(--accent-terracotta)",
-            borderRadius: 4,
+            padding: "0.85rem 1.1rem",
+            backgroundColor: "rgba(224, 122, 95, 0.12)",
+            border: "1px solid rgba(224, 122, 95, 0.25)",
+            borderRadius: 8,
             color: "var(--accent-terracotta)",
             fontSize: "0.85rem",
             marginBottom: "1.5rem",
@@ -319,42 +328,45 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
       {/* Answer & Evidence Section */}
       {answer && (
         <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-          {/* Main Answer Card */}
+          {/* Main Answer Glass Card */}
           <div
+            className="glass-panel"
             style={{
-              backgroundColor: "var(--bg-surface-1)",
-              border: `1px solid ${answer.is_refusal ? "var(--accent-terracotta)" : "var(--border-hairline)"}`,
-              borderRadius: 6,
-              padding: "1.25rem 1.5rem",
+              padding: "1.5rem 1.75rem",
+              borderRadius: 14,
+              border: `1px solid ${
+                answer.is_refusal ? "rgba(224, 122, 95, 0.4)" : "rgba(255, 255, 255, 0.1)"
+              }`,
             }}
           >
-            {/* Meta bar */}
+            {/* Meta status bar */}
             <div
               style={{
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                marginBottom: "1rem",
-                paddingBottom: "0.6rem",
-                borderBottom: "1px solid var(--border-hairline)",
+                marginBottom: "1.1rem",
+                paddingBottom: "0.75rem",
+                borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
                 flexWrap: "wrap",
-                gap: "0.5rem",
+                gap: "0.6rem",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                 {answer.is_refusal ? (
                   <span
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      gap: "0.3rem",
+                      gap: "0.35rem",
                       fontSize: "0.72rem",
                       fontFamily: "var(--font-mono)",
-                      padding: "2px 6px",
-                      borderRadius: 3,
+                      padding: "2px 8px",
+                      borderRadius: 9999,
                       backgroundColor: "var(--accent-terracotta-dim)",
                       color: "var(--accent-terracotta)",
-                      border: "1px solid var(--accent-terracotta)",
+                      border: "1px solid rgba(224, 122, 95, 0.35)",
+                      fontWeight: 600,
                     }}
                   >
                     <ShieldAlert size={12} />
@@ -365,14 +377,15 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      gap: "0.3rem",
+                      gap: "0.35rem",
                       fontSize: "0.72rem",
                       fontFamily: "var(--font-mono)",
-                      padding: "2px 6px",
-                      borderRadius: 3,
-                      backgroundColor: "var(--accent-brass-dim)",
+                      padding: "2px 8px",
+                      borderRadius: 9999,
+                      backgroundColor: "rgba(212, 163, 115, 0.15)",
                       color: "var(--accent-brass)",
-                      border: "1px solid var(--accent-brass)",
+                      border: "1px solid rgba(212, 163, 115, 0.35)",
+                      fontWeight: 600,
                     }}
                   >
                     <Sparkles size={12} />
@@ -386,57 +399,56 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                     fontFamily: "var(--font-mono)",
                   }}
                 >
-                  Model: {answer.model_name} • Latency: {answer.latency_ms}ms
+                  {answer.model_name} • {answer.latency_ms}ms
                 </span>
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                {/* Save to Supabase Button */}
+              <div style={{ display: "flex", alignItems: "center", gap: "0.55rem" }}>
+                {/* Save to Supabase Glass Button */}
                 <button
                   type="button"
                   onClick={handleSaveToSupabase}
                   disabled={saving}
+                  className="glass-pill"
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: "0.35rem",
-                    background: saved ? "rgba(78, 159, 118, 0.15)" : "var(--bg-surface-2)",
-                    border: `1px solid ${saved ? "rgba(78, 159, 118, 0.35)" : "var(--border-hairline)"}`,
+                    padding: "0.35rem 0.8rem",
                     color: saved ? "var(--accent-forest)" : "var(--accent-brass)",
                     fontSize: "0.75rem",
                     fontWeight: 500,
-                    padding: "3px 8px",
-                    borderRadius: 4,
                     cursor: saving ? "wait" : "pointer",
-                    transition: "all 0.15s ease",
+                    backgroundColor: saved ? "rgba(78, 159, 118, 0.12)" : undefined,
+                    border: saved ? "1px solid rgba(78, 159, 118, 0.3)" : undefined,
                   }}
                 >
                   {saving ? (
-                    <Loader2 size={12} className="animate-spin" />
+                    <Loader2 size={12} className="spin" />
                   ) : saved ? (
                     <Check size={12} />
                   ) : (
                     <Bookmark size={12} />
                   )}
-                  <span>{saved ? "Saved to Supabase" : "Save Question"}</span>
+                  <span>{saved ? "Saved" : "Save Question"}</span>
                 </button>
 
-                {/* Copy Button */}
+                {/* Copy Answer Button */}
                 <button
                   type="button"
                   onClick={handleCopy}
+                  className="glass-pill"
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: "0.3rem",
-                    background: "transparent",
-                    border: "none",
-                    color: "var(--text-muted)",
+                    padding: "0.35rem 0.75rem",
+                    color: copied ? "var(--accent-forest)" : "var(--text-secondary)",
                     fontSize: "0.75rem",
                     cursor: "pointer",
                   }}
                 >
-                  {copied ? <Check size={13} color="var(--accent-forest)" /> : <Copy size={13} />}
+                  {copied ? <Check size={12} color="var(--accent-forest)" /> : <Copy size={12} />}
                   <span>{copied ? "Copied" : "Copy"}</span>
                 </button>
               </div>
@@ -445,33 +457,34 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             {/* Answer Content */}
             <div
               style={{
-                fontSize: "0.95rem",
-                lineHeight: 1.65,
+                fontSize: "0.98rem",
+                lineHeight: 1.7,
                 color: "var(--text-primary)",
                 whiteSpace: "pre-wrap",
+                letterSpacing: "-0.01em",
               }}
             >
               {answer.answer}
             </div>
 
-            {/* Citations list */}
+            {/* Source Citations */}
             {answer.citations.length > 0 && (
               <div
                 style={{
-                  marginTop: "1.25rem",
-                  paddingTop: "0.85rem",
-                  borderTop: "1px solid var(--border-hairline)",
+                  marginTop: "1.5rem",
+                  paddingTop: "1rem",
+                  borderTop: "1px solid rgba(255, 255, 255, 0.06)",
                 }}
               >
                 <span
                   style={{
                     fontSize: "0.72rem",
                     textTransform: "uppercase",
-                    letterSpacing: "0.04em",
+                    letterSpacing: "0.06em",
                     color: "var(--text-muted)",
                     fontFamily: "var(--font-mono)",
                     display: "block",
-                    marginBottom: "0.5rem",
+                    marginBottom: "0.6rem",
                   }}
                 >
                   Source Citations:
@@ -483,15 +496,13 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                       href={c.github_url}
                       target="_blank"
                       rel="noreferrer"
+                      className="glass-pill"
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: "0.35rem",
-                        padding: "3px 8px",
-                        borderRadius: 3,
-                        backgroundColor: "var(--bg-surface-2)",
-                        border: "1px solid var(--border-hairline)",
-                        fontSize: "0.75rem",
+                        gap: "0.4rem",
+                        padding: "4px 10px",
+                        fontSize: "0.76rem",
                         color: "var(--accent-brass)",
                         fontFamily: "var(--font-mono)",
                         textDecoration: "none",
@@ -513,11 +524,10 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
           {/* Retrieved Passages (Evidence Inspector) */}
           {answer.retrieved_passages.length > 0 && (
             <div
+              className="glass-panel"
               style={{
-                backgroundColor: "var(--bg-surface-1)",
-                border: "1px solid var(--border-hairline)",
-                borderRadius: 6,
-                padding: "1rem 1.25rem",
+                padding: "1rem 1.35rem",
+                borderRadius: 12,
               }}
             >
               <div
@@ -530,14 +540,14 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                   userSelect: "none",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <Layers size={14} color="var(--accent-brass)" />
-                  <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.55rem" }}>
+                  <Layers size={15} color="var(--accent-brass)" />
+                  <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-primary)" }}>
                     Retrieved Passages & Cosine Similarity Inspector ({answer.retrieved_passages.length})
                   </span>
                   <span
                     style={{
-                      fontSize: "0.7rem",
+                      fontSize: "0.72rem",
                       color: "var(--text-muted)",
                       fontFamily: "var(--font-mono)",
                     }}
@@ -561,11 +571,12 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 
               {passagesExpanded && (
                 <div
+                  className="animate-fade-in"
                   style={{
-                    marginTop: "0.85rem",
+                    marginTop: "1rem",
                     display: "flex",
                     flexDirection: "column",
-                    gap: "0.65rem",
+                    gap: "0.75rem",
                   }}
                 >
                   {answer.retrieved_passages.map((p, idx) => {
@@ -574,11 +585,10 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                     return (
                       <div
                         key={idx}
+                        className="glass-card"
                         style={{
-                          backgroundColor: "var(--bg-surface-2)",
-                          border: "1px solid var(--border-hairline)",
-                          borderRadius: 4,
-                          padding: "0.75rem 0.85rem",
+                          padding: "0.85rem 1rem",
+                          borderRadius: 8,
                         }}
                       >
                         <div
@@ -586,32 +596,34 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                             display: "flex",
                             justifyContent: "space-between",
                             alignItems: "center",
-                            marginBottom: "0.4rem",
-                            fontSize: "0.72rem",
+                            marginBottom: "0.45rem",
+                            fontSize: "0.74rem",
                             fontFamily: "var(--font-mono)",
                           }}
                         >
-                          <span style={{ color: "var(--accent-brass)" }}>
+                          <span style={{ color: "var(--accent-brass)", fontWeight: 500 }}>
                             {p.chunk?.file_path || "source.md"}{" "}
                             {p.chunk?.start_line ? `#L${p.chunk.start_line}-${p.chunk.end_line}` : ""}
                           </span>
                           <span
                             style={{
-                              padding: "1px 5px",
-                              borderRadius: 2,
+                              padding: "2px 7px",
+                              borderRadius: 9999,
                               backgroundColor: isAbove ? "var(--accent-forest-dim)" : "var(--accent-terracotta-dim)",
                               color: isAbove ? "var(--accent-forest)" : "var(--accent-terracotta)",
-                              border: `1px solid ${isAbove ? "var(--accent-forest)" : "var(--accent-terracotta)"}`,
+                              border: `1px solid ${isAbove ? "rgba(78, 159, 118, 0.3)" : "rgba(224, 122, 95, 0.3)"}`,
+                              fontSize: "0.7rem",
+                              fontWeight: 600,
                             }}
                           >
-                            Cosine Score: {p.similarity_score.toFixed(3)}
+                            Cosine: {p.similarity_score.toFixed(3)}
                           </span>
                         </div>
                         <p
                           style={{
-                            fontSize: "0.8rem",
+                            fontSize: "0.82rem",
                             color: "var(--text-secondary)",
-                            lineHeight: 1.5,
+                            lineHeight: 1.6,
                             whiteSpace: "pre-wrap",
                             fontFamily: "var(--font-mono)",
                           }}

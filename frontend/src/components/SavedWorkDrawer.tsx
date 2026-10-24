@@ -128,12 +128,14 @@ export const SavedWorkDrawer: React.FC<SavedWorkDrawerProps> = ({ onRestoreQuest
           width: "100%",
           maxWidth: 620,
           height: "100%",
-          backgroundColor: "var(--bg-surface-1)",
-          borderLeft: "1px solid var(--border-hairline)",
+          backgroundColor: "rgba(18, 21, 28, 0.88)",
+          backdropFilter: "blur(28px) saturate(190%)",
+          WebkitBackdropFilter: "blur(28px) saturate(190%)",
+          borderLeft: "1px solid rgba(255, 255, 255, 0.1)",
           display: "flex",
           flexDirection: "column",
-          boxShadow: "-10px 0 30px rgba(0, 0, 0, 0.5)",
-          animation: "slideInRight 0.2s ease-out",
+          boxShadow: "-16px 0 45px rgba(0, 0, 0, 0.6)",
+          animation: "slideInRight 0.22s var(--ease-apple)",
         }}
       >
         {/* Drawer Header */}

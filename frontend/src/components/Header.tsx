@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import {
   Compass,
   GitBranch,
-  Cpu,
   ExternalLink,
   Bookmark,
   LogOut,
@@ -45,12 +44,14 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header
       style={{
-        backgroundColor: "var(--bg-surface-1)",
-        borderBottom: "1px solid var(--border-hairline)",
-        padding: "0.75rem 1.5rem",
+        backgroundColor: "rgba(13, 15, 20, 0.75)",
+        backdropFilter: "blur(24px) saturate(180%)",
+        WebkitBackdropFilter: "blur(24px) saturate(180%)",
+        borderBottom: "1px solid rgba(255, 255, 255, 0.07)",
+        padding: "0.65rem 1.75rem",
         position: "sticky",
         top: 0,
-        zIndex: 40,
+        zIndex: 50,
       }}
     >
       <div
@@ -64,31 +65,32 @@ export const Header: React.FC<HeaderProps> = ({
           gap: "1rem",
         }}
       >
-        {/* Brand identity */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+        {/* Brand identity - Apple minimal typography */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
           <div
             style={{
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              width: 34,
-              height: 34,
-              borderRadius: 6,
-              backgroundColor: "var(--accent-brass-dim)",
-              border: "1px solid var(--accent-brass)",
+              width: 32,
+              height: 32,
+              borderRadius: 9,
+              background: "linear-gradient(135deg, rgba(212, 163, 115, 0.22) 0%, rgba(212, 163, 115, 0.05) 100%)",
+              border: "1px solid rgba(212, 163, 115, 0.35)",
               color: "var(--accent-brass)",
+              boxShadow: "0 2px 10px rgba(212, 163, 115, 0.12)",
             }}
           >
-            <Compass size={20} />
+            <Compass size={17} />
           </div>
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
               <span
                 style={{
-                  fontFamily: "var(--font-mono)",
+                  fontFamily: "var(--font-sans)",
                   fontWeight: 600,
-                  fontSize: "1.15rem",
-                  letterSpacing: "-0.02em",
+                  fontSize: "1.1rem",
+                  letterSpacing: "-0.03em",
                   color: "var(--text-primary)",
                 }}
               >
@@ -96,53 +98,43 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
               <span
                 style={{
-                  fontSize: "0.7rem",
-                  padding: "1px 6px",
-                  borderRadius: 3,
-                  backgroundColor: "var(--bg-surface-2)",
+                  fontSize: "0.68rem",
+                  padding: "1px 7px",
+                  borderRadius: 9999,
+                  backgroundColor: "rgba(255, 255, 255, 0.05)",
                   color: "var(--text-secondary)",
-                  border: "1px solid var(--border-hairline)",
+                  border: "1px solid rgba(255, 255, 255, 0.08)",
                   fontFamily: "var(--font-mono)",
+                  fontWeight: 500,
                 }}
               >
-                Gemma 4 RAG
+                Gemma 4
               </span>
             </div>
-            <p
-              style={{
-                fontSize: "0.75rem",
-                color: "var(--text-muted)",
-                letterSpacing: "0.01em",
-              }}
-            >
-              Find your way into open source.
-            </p>
           </div>
         </div>
 
-        {/* Navigation tabs */}
-        <nav style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+        {/* Navigation tabs - Apple Segmented Control */}
+        <nav
+          className="segmented-control"
+          style={{
+            backgroundColor: "rgba(20, 23, 30, 0.7)",
+            border: "1px solid rgba(255, 255, 255, 0.08)",
+            boxShadow: "inset 0 1px 3px rgba(0, 0, 0, 0.3)",
+          }}
+        >
           {[
             { id: "workspace", label: "Workspace" },
             { id: "checklist", label: "Onboarding Checklist" },
-            { id: "evaluation", label: "Evaluation Benchmark" },
-            { id: "sources", label: "Repository Sources" },
+            { id: "evaluation", label: "Benchmark" },
+            { id: "sources", label: "Sources" },
           ].map((tab) => {
             const isActive = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                style={{
-                  padding: "0.45rem 0.85rem",
-                  fontSize: "0.82rem",
-                  fontWeight: isActive ? 600 : 400,
-                  color: isActive ? "var(--accent-brass)" : "var(--text-secondary)",
-                  backgroundColor: isActive ? "var(--bg-surface-2)" : "transparent",
-                  border: isActive ? "1px solid var(--border-active)" : "1px solid transparent",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                }}
+                className={`segmented-control-btn ${isActive ? "active" : ""}`}
               >
                 {tab.label}
               </button>
@@ -150,9 +142,9 @@ export const Header: React.FC<HeaderProps> = ({
           })}
         </nav>
 
-        {/* User Auth, Saved Work & System Status */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-          {/* Saved Work Button */}
+        {/* Action Controls & Badges */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.55rem" }}>
+          {/* Saved Work Glass Pill */}
           <button
             onClick={() => {
               if (!user) {
@@ -161,19 +153,17 @@ export const Header: React.FC<HeaderProps> = ({
                 openSavedWorkDrawer();
               }
             }}
-            title={user ? "View your saved questions and checklists" : "Log in to view saved work"}
+            title={user ? "View your saved work" : "Log in to view saved work"}
+            className="glass-pill"
             style={{
               display: "flex",
               alignItems: "center",
               gap: "0.4rem",
-              padding: "0.4rem 0.75rem",
-              borderRadius: 4,
-              backgroundColor: "var(--bg-surface-2)",
-              border: "1px solid var(--border-hairline)",
+              padding: "0.35rem 0.8rem",
               color: "var(--text-primary)",
               fontSize: "0.78rem",
               cursor: "pointer",
-              transition: "all 0.15s ease",
+              fontWeight: 500,
             }}
           >
             <Bookmark size={13} color="var(--accent-brass)" />
@@ -181,12 +171,12 @@ export const Header: React.FC<HeaderProps> = ({
             {user && (
               <span
                 style={{
-                  padding: "1px 5px",
-                  borderRadius: 10,
-                  backgroundColor: totalSaved > 0 ? "var(--accent-brass)" : "var(--bg-surface-3)",
+                  padding: "1px 6px",
+                  borderRadius: 9999,
+                  backgroundColor: totalSaved > 0 ? "var(--accent-brass)" : "rgba(255, 255, 255, 0.08)",
                   color: totalSaved > 0 ? "#121316" : "var(--text-muted)",
                   fontSize: "0.68rem",
-                  fontWeight: 600,
+                  fontWeight: 700,
                   fontFamily: "var(--font-mono)",
                 }}
               >
@@ -195,19 +185,17 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </button>
 
-          {/* User Auth Pill / Buttons */}
+          {/* User Auth Pill / Dropdown */}
           {user ? (
             <div style={{ position: "relative" }}>
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="glass-pill"
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: "0.45rem",
-                  padding: "0.35rem 0.65rem",
-                  borderRadius: 4,
-                  backgroundColor: "var(--bg-surface-2)",
-                  border: "1px solid var(--border-active)",
+                  padding: "0.3rem 0.65rem 0.3rem 0.35rem",
                   color: "var(--text-primary)",
                   fontSize: "0.78rem",
                   cursor: "pointer",
@@ -215,10 +203,11 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <div
                   style={{
-                    width: 20,
-                    height: 20,
+                    width: 22,
+                    height: 22,
                     borderRadius: "50%",
-                    backgroundColor: "var(--accent-brass-dim)",
+                    background: "linear-gradient(135deg, rgba(212, 163, 115, 0.3), rgba(212, 163, 115, 0.1))",
+                    border: "1px solid rgba(212, 163, 115, 0.4)",
                     color: "var(--accent-brass)",
                     display: "flex",
                     alignItems: "center",
@@ -231,15 +220,16 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
                 <span
                   style={{
-                    maxWidth: 110,
+                    maxWidth: 100,
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
+                    fontWeight: 500,
                   }}
                 >
                   {user.user_metadata?.full_name || user.email?.split("@")[0]}
                 </span>
-                <ChevronDown size={12} color="var(--text-muted)" />
+                <ChevronDown size={11} color="var(--text-muted)" />
               </button>
 
               {userMenuOpen && (
@@ -248,24 +238,27 @@ export const Header: React.FC<HeaderProps> = ({
                     position: "absolute",
                     right: 0,
                     top: "100%",
-                    marginTop: 6,
-                    width: 210,
-                    backgroundColor: "var(--bg-surface-1)",
-                    border: "1px solid var(--border-hairline)",
-                    borderRadius: 6,
-                    boxShadow: "0 10px 25px rgba(0, 0, 0, 0.4)",
-                    zIndex: 50,
+                    marginTop: 8,
+                    width: 220,
+                    backgroundColor: "rgba(22, 25, 34, 0.92)",
+                    backdropFilter: "blur(24px) saturate(180%)",
+                    WebkitBackdropFilter: "blur(24px) saturate(180%)",
+                    border: "1px solid rgba(255, 255, 255, 0.1)",
+                    borderRadius: 10,
+                    boxShadow: "0 16px 40px rgba(0, 0, 0, 0.55)",
+                    zIndex: 60,
                     overflow: "hidden",
+                    animation: "scaleIn 0.18s var(--ease-apple)",
                   }}
                 >
                   <div
                     style={{
-                      padding: "0.65rem 0.85rem",
-                      borderBottom: "1px solid var(--border-hairline)",
-                      backgroundColor: "var(--bg-surface-2)",
+                      padding: "0.75rem 0.95rem",
+                      borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
+                      backgroundColor: "rgba(255, 255, 255, 0.02)",
                     }}
                   >
-                    <div style={{ fontSize: "0.78rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                    <div style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--text-primary)" }}>
                       {user.user_metadata?.full_name || "Contributor"}
                     </div>
                     <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -280,7 +273,7 @@ export const Header: React.FC<HeaderProps> = ({
                     }}
                     style={{
                       width: "100%",
-                      padding: "0.6rem 0.85rem",
+                      padding: "0.65rem 0.95rem",
                       background: "none",
                       border: "none",
                       color: "var(--text-primary)",
@@ -290,7 +283,7 @@ export const Header: React.FC<HeaderProps> = ({
                       alignItems: "center",
                       gap: "0.5rem",
                       cursor: "pointer",
-                      borderBottom: "1px solid var(--border-hairline)",
+                      borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
                     }}
                   >
                     <Bookmark size={13} color="var(--accent-brass)" />
@@ -304,21 +297,35 @@ export const Header: React.FC<HeaderProps> = ({
                     }}
                     style={{
                       width: "100%",
-                      padding: "0.6rem 0.85rem",
+                      padding: "0.65rem 0.95rem",
                       background: "none",
                       border: "none",
-                      color: "var(--text-primary)",
+                      color: "var(--text-secondary)",
                       fontSize: "0.78rem",
                       textAlign: "left",
                       display: "flex",
                       alignItems: "center",
-                      gap: "0.5rem",
+                      justifyContent: "space-between",
                       cursor: "pointer",
-                      borderBottom: "1px solid var(--border-hairline)",
+                      borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
                     }}
                   >
-                    <Database size={13} color="var(--text-muted)" />
-                    Database Settings
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <Database size={13} color="var(--text-muted)" />
+                      <span>Database</span>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: "0.68rem",
+                        padding: "1px 6px",
+                        borderRadius: 4,
+                        backgroundColor: isConfigured ? "rgba(78, 159, 118, 0.15)" : "rgba(255, 255, 255, 0.06)",
+                        color: isConfigured ? "var(--accent-forest)" : "var(--text-muted)",
+                        fontFamily: "var(--font-mono)",
+                      }}
+                    >
+                      {isConfigured ? "Supabase" : "Local DB"}
+                    </span>
                   </button>
 
                   <button
@@ -328,7 +335,7 @@ export const Header: React.FC<HeaderProps> = ({
                     }}
                     style={{
                       width: "100%",
-                      padding: "0.6rem 0.85rem",
+                      padding: "0.65rem 0.95rem",
                       background: "none",
                       border: "none",
                       color: "#ff8b8b",
@@ -347,17 +354,16 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
           ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
               <button
                 onClick={() => openAuthModal("login")}
+                className="glass-pill"
                 style={{
-                  padding: "0.35rem 0.65rem",
-                  borderRadius: 4,
-                  backgroundColor: "transparent",
-                  border: "1px solid var(--border-hairline)",
+                  padding: "0.35rem 0.75rem",
                   color: "var(--text-primary)",
                   fontSize: "0.78rem",
                   cursor: "pointer",
+                  fontWeight: 500,
                 }}
               >
                 Log In
@@ -365,14 +371,15 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 onClick={() => openAuthModal("signup")}
                 style={{
-                  padding: "0.35rem 0.65rem",
-                  borderRadius: 4,
-                  backgroundColor: "var(--accent-brass)",
+                  padding: "0.35rem 0.85rem",
+                  borderRadius: 9999,
+                  background: "linear-gradient(135deg, #E4B589 0%, #D4A373 100%)",
                   border: "none",
                   color: "#121316",
                   fontSize: "0.78rem",
                   fontWeight: 600,
                   cursor: "pointer",
+                  boxShadow: "0 2px 8px rgba(212, 163, 115, 0.25)",
                 }}
               >
                 Sign Up
@@ -380,88 +387,60 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           )}
 
-          {/* Database indicator */}
-          <button
-            onClick={() => openAuthModal("config")}
-            title={isConfigured ? "Connected to Supabase PostgreSQL database" : "Using local storage mode (Click to connect Supabase)"}
+          {/* Model Status Pill with Live Pulsing Dot */}
+          <div
+            className="glass-pill"
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 4,
-              padding: "0.3rem 0.55rem",
-              borderRadius: 4,
-              backgroundColor: isConfigured ? "rgba(78, 159, 118, 0.15)" : "var(--bg-surface-2)",
-              border: `1px solid ${isConfigured ? "rgba(78, 159, 118, 0.35)" : "var(--border-hairline)"}`,
-              color: isConfigured ? "var(--accent-forest)" : "var(--text-muted)",
-              fontSize: "0.72rem",
+              gap: "0.45rem",
+              padding: "0.35rem 0.75rem",
+              fontSize: "0.74rem",
               fontFamily: "var(--font-mono)",
-              cursor: "pointer",
             }}
           >
-            <Database size={11} />
-            <span>{isConfigured ? "Supabase" : "Local DB"}</span>
-          </button>
+            <span
+              className={apiKeyConfigured ? "pulse-live" : ""}
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                backgroundColor: apiKeyConfigured ? "var(--accent-forest)" : "var(--accent-brass)",
+                display: "inline-block",
+              }}
+            />
+            <span style={{ color: apiKeyConfigured ? "var(--text-primary)" : "var(--accent-brass)" }}>
+              {apiKeyConfigured ? modelName : "Demo Mode"}
+            </span>
+            <span style={{ color: "var(--text-muted)", fontSize: "0.7rem" }}>
+              • {chunksCount} chunks
+            </span>
+          </div>
 
-          {/* Repo & Model Badges */}
+          {/* Repo Link Pill */}
           {repository && (
             <a
               href={repository.url}
               target="_blank"
               rel="noreferrer"
               title="Open repository on GitHub"
+              className="glass-pill"
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: "0.35rem",
-                padding: "0.3rem 0.65rem",
-                borderRadius: 4,
-                backgroundColor: "var(--bg-surface-2)",
-                border: "1px solid var(--border-hairline)",
-                color: "var(--text-primary)",
-                fontSize: "0.78rem",
+                padding: "0.35rem 0.7rem",
+                color: "var(--text-secondary)",
+                fontSize: "0.75rem",
                 fontFamily: "var(--font-mono)",
                 textDecoration: "none",
               }}
             >
-              <GitBranch size={13} color="var(--accent-brass)" />
-              <span>
-                {repository.owner}/{repository.repo}
-              </span>
-              <ExternalLink size={11} color="var(--text-muted)" />
+              <GitBranch size={12} color="var(--accent-brass)" />
+              <span>{repository.owner}/{repository.repo}</span>
+              <ExternalLink size={10} color="var(--text-muted)" />
             </a>
           )}
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.35rem",
-              padding: "0.3rem 0.65rem",
-              borderRadius: 4,
-              backgroundColor: apiKeyConfigured ? "var(--accent-forest-dim)" : "var(--accent-brass-dim)",
-              border: `1px solid ${apiKeyConfigured ? "var(--accent-forest)" : "var(--accent-brass)"}`,
-              color: apiKeyConfigured ? "var(--accent-forest)" : "var(--accent-brass)",
-              fontSize: "0.75rem",
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            <Cpu size={12} />
-            <span>{apiKeyConfigured ? modelName : "Demo Mode"}</span>
-          </div>
-
-          <div
-            style={{
-              padding: "0.3rem 0.55rem",
-              borderRadius: 4,
-              backgroundColor: "var(--bg-surface-2)",
-              border: "1px solid var(--border-hairline)",
-              color: "var(--text-secondary)",
-              fontSize: "0.75rem",
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            {chunksCount} chunks
-          </div>
         </div>
       </div>
     </header>
