@@ -1,8 +1,11 @@
-"""Answer generator for Gemma 4 via Google AI Studio API with strict grounding."""
+"""Answer generator for Gemma / Gemini via Google AI Studio API with strict grounding."""
 
 import os
 import time
 from typing import List, Optional, Any
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from .models import RetrievedPassage, GroundedAnswer, Citation
 from .refusal_policy import (
@@ -13,10 +16,10 @@ from .refusal_policy import (
 )
 from .answer_cache import global_answer_cache
 
-DEFAULT_GEMMA_MODEL = os.environ.get("GEMMA_MODEL", "gemini-2.5-flash-lite")
-FALLBACK_MODELS = ["gemini-2.5-flash", "gemma-4-26b-a4b-it"]
+DEFAULT_GEMMA_MODEL = os.environ.get("GEMMA_MODEL", "gemini-2.5-flash")
+FALLBACK_MODELS = ["gemini-2.5-flash", "gemma-4-26b-a4b-it", "gemini-flash-latest"]
 TEMPERATURE = 0.2
-MAX_OUTPUT_TOKENS = 400  # Allows clean structured formatting while preventing token runaways
+MAX_OUTPUT_TOKENS = 700  # Allows full structured markdown responses
 MAX_CHUNK_CHARS = 800    # Prune chunk content to avoid excessive input token bills
 MAX_CONTEXT_WORDS = 1000 # Overall context cap
 
@@ -110,6 +113,19 @@ def _generate_demo_answer(question: str, passages: List[RetrievedPassage]) -> st
     )
 
 
+def _build_model_config(model: str):
+    from google.genai import types
+    cfg = {
+        "system_instruction": SYSTEM_INSTRUCTION,
+        "temperature": TEMPERATURE,
+        "max_output_tokens": MAX_OUTPUT_TOKENS,
+    }
+    # Only supply thinking_budget=0 to Gemini models that support thinking budgets
+    if "gemini" in model.lower():
+        cfg["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
+    return types.GenerateContentConfig(**cfg)
+
+
 def _extract_text_from_response(response: Any) -> str:
     """Extracts non-thought text from response or candidate parts."""
     if getattr(response, "text", None):
@@ -117,12 +133,20 @@ def _extract_text_from_response(response: Any) -> str:
     if hasattr(response, "candidates") and response.candidates:
         c = response.candidates[0]
         if hasattr(c, "content") and c.content and hasattr(c.content, "parts"):
+            # 1. Prefer parts without thought flag
             text_parts = [
                 p.text for p in c.content.parts
                 if not getattr(p, "thought", False) and getattr(p, "text", None)
             ]
             if text_parts:
                 return "\n".join(text_parts).strip()
+            # 2. If model returned thoughts, extract text conclusion
+            all_parts = [p.text for p in c.content.parts if getattr(p, "text", None)]
+            if all_parts:
+                full = "\n".join(all_parts).strip()
+                if "</thought>" in full:
+                    return full.split("</thought>")[-1].strip()
+                return full
     return ""
 
 
@@ -135,7 +159,7 @@ async def generate_grounded_answer(
     """
     Generates a grounded answer for the question using Gemma/Gemini and retrieved passages.
     Checks in-memory cache first to eliminate duplicate API calls.
-    Enforces max_output_tokens=400, thinking_budget=0 for instant execution, and context pruning.
+    Enforces max_output_tokens=700, thinking_budget=0 for instant execution, and context pruning.
     """
     start_time = time.time()
 
@@ -173,38 +197,34 @@ async def generate_grounded_answer(
         used_model = f"{model_name} (demo-mode)"
     else:
         try:
-            from google.genai import types
-
             client = _get_genai_client(api_key)
+            config = _build_model_config(model_name)
             response = await client.aio.models.generate_content(
                 model=model_name,
                 contents=user_prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=SYSTEM_INSTRUCTION,
-                    temperature=TEMPERATURE,
-                    max_output_tokens=MAX_OUTPUT_TOKENS,
-                    thinking_config=types.ThinkingConfig(thinking_budget=0),
-                )
+                config=config
             )
             answer_text = _extract_text_from_response(response)
+            if not answer_text:
+                raise ValueError("Empty response text from model")
         except Exception as e:
             err_msg = str(e).lower()
-            if "404" in err_msg or "not found" in err_msg:
+            if "429" in err_msg or "quota" in err_msg or "resource_exhausted" in err_msg:
+                answer_text = "Notice: Free-tier Gemini API quota limit reached. Using demonstration answer to preserve quota:\n" + _generate_demo_answer(question, passages)
+                used_model = f"{model_name} (quota-fallback)"
+            else:
                 # Try fallback models in order
                 fallback_success = False
-                from google.genai import types
                 client = _get_genai_client(api_key)
                 for fallback in FALLBACK_MODELS:
+                    if fallback == model_name:
+                        continue
                     try:
+                        f_config = _build_model_config(fallback)
                         resp = await client.aio.models.generate_content(
                             model=fallback,
                             contents=user_prompt,
-                            config=types.GenerateContentConfig(
-                                system_instruction=SYSTEM_INSTRUCTION,
-                                temperature=TEMPERATURE,
-                                max_output_tokens=MAX_OUTPUT_TOKENS,
-                                thinking_config=types.ThinkingConfig(thinking_budget=0),
-                            )
+                            config=f_config
                         )
                         answer_text = _extract_text_from_response(resp)
                         if answer_text:
@@ -215,12 +235,6 @@ async def generate_grounded_answer(
                         continue
                 if not fallback_success:
                     answer_text = _generate_demo_answer(question, passages)
-            elif "429" in err_msg or "quota" in err_msg or "resource_exhausted" in err_msg:
-                answer_text = "Notice: Free-tier Gemini API quota limit reached. Using demonstration answer to preserve quota:\n" + _generate_demo_answer(question, passages)
-                used_model = f"{model_name} (quota-fallback)"
-
-            else:
-                answer_text = _generate_demo_answer(question, passages)
 
 
     # Step 3: Post-generation refusal check

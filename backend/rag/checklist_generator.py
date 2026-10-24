@@ -53,7 +53,7 @@ def generate_onboarding_checklist(repo_key: str, index: VectorIndex) -> Onboardi
         query = defn["query"]
 
         passages = index.retrieve(query, top_k=2)
-        if passages and passages[0].similarity_score >= 0.58:
+        if passages and passages[0].similarity_score >= 0.22:
             top_chunk = passages[0].chunk
 
             covered_count += 1
