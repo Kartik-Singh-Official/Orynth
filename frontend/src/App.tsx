@@ -5,9 +5,13 @@ import { WorkspaceView } from "./components/WorkspaceView";
 import { ChecklistView } from "./components/ChecklistView";
 import { EvaluationView } from "./components/EvaluationView";
 import { SourcesView } from "./components/SourcesView";
+import { AuthModal } from "./components/AuthModal";
+import { SavedWorkDrawer } from "./components/SavedWorkDrawer";
+import { AuthProvider } from "./context/AuthContext";
 import { fetchHealth, fetchCurrentRepository, type RepositoryMetadata, type DocumentFile } from "./api";
+import type { SavedQuestion } from "./supabase";
 
-export const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"workspace" | "checklist" | "evaluation" | "sources">("workspace");
   const [repository, setRepository] = useState<RepositoryMetadata | null>(null);
   const [documents, setDocuments] = useState<DocumentFile[]>([]);
@@ -15,6 +19,7 @@ export const App: React.FC = () => {
   const [apiKeyConfigured, setApiKeyConfigured] = useState<boolean>(false);
   const [modelName, setModelName] = useState<string>("gemma-4-26b-a4b-it");
   const [prefilledQuery, setPrefilledQuery] = useState<string>("");
+  const [restoredQuestion, setRestoredQuestion] = useState<SavedQuestion | null>(null);
 
   useEffect(() => {
     initApp();
@@ -44,7 +49,14 @@ export const App: React.FC = () => {
 
   const handleAskAboutStep = (stepQuery: string) => {
     setPrefilledQuery(stepQuery);
+    setRestoredQuestion(null);
     setActiveTab("workspace");
+  };
+
+  const handleRestoreQuestion = (q: SavedQuestion) => {
+    setRestoredQuestion(q);
+    setActiveTab("workspace");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
@@ -68,6 +80,7 @@ export const App: React.FC = () => {
           <WorkspaceView
             repository={repository}
             initialQuery={prefilledQuery}
+            restoredQuestion={restoredQuestion}
             onSelectChecklistTab={() => setActiveTab("checklist")}
           />
         )}
@@ -91,29 +104,37 @@ export const App: React.FC = () => {
         )}
       </main>
 
+      {/* Global Supabase Auth & Saved Work Modals */}
+      <AuthModal />
+      <SavedWorkDrawer onRestoreQuestion={handleRestoreQuestion} />
+
       {/* Footer */}
-      <footer style={{
-        backgroundColor: "var(--bg-surface-1)",
-        borderTop: "1px solid var(--border-hairline)",
-        padding: "1.25rem 1.5rem",
-        fontSize: "0.78rem",
-        color: "var(--text-muted)",
-        textAlign: "center",
-      }}>
-        <div style={{
-          maxWidth: 1200,
-          margin: "0 auto",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "0.75rem",
-        }}>
+      <footer
+        style={{
+          backgroundColor: "var(--bg-surface-1)",
+          borderTop: "1px solid var(--border-hairline)",
+          padding: "1.25rem 1.5rem",
+          fontSize: "0.78rem",
+          color: "var(--text-muted)",
+          textAlign: "center",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 1200,
+            margin: "0 auto",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "0.75rem",
+          }}
+        >
           <div>
             <strong style={{ color: "var(--text-secondary)" }}>Orynth</strong> — Evidence-grounded AI open-source contributor guide.
           </div>
           <div>
-            Built for <strong>HacktoberFest HackDay Theme 2: RAG Application with Gemma</strong>.
+            Saved work securely backed by <strong>Supabase PostgreSQL</strong> with Row Level Security.
           </div>
           <div style={{ fontFamily: "var(--font-mono)" }}>
             Powered by Google Gemma 4 & all-MiniLM-L6-v2 CPU embeddings.
@@ -121,6 +142,14 @@ export const App: React.FC = () => {
         </div>
       </footer>
     </div>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 };
 

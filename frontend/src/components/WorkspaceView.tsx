@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Send,
   Loader2,
@@ -12,12 +12,17 @@ import {
   Sparkles,
   Layers,
   Terminal,
+  Bookmark,
+  CheckCircle2,
 } from "lucide-react";
 import { askQuestion, type GroundedAnswer, type RepositoryMetadata } from "../api";
+import { useAuth } from "../context/AuthContext";
+import { saveQuestionToDb, type SavedQuestion } from "../supabase";
 
 interface WorkspaceViewProps {
   repository: RepositoryMetadata | null;
   initialQuery?: string;
+  restoredQuestion?: SavedQuestion | null;
   onSelectChecklistTab: () => void;
 }
 
@@ -31,27 +36,53 @@ const STARTER_PROMPTS = [
 export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   repository,
   initialQuery,
+  restoredQuestion,
   onSelectChecklistTab,
 }) => {
+  const { user, openAuthModal, refreshSavedCounts } = useAuth();
   const [question, setQuestion] = useState(initialQuery || "");
   const [loading, setLoading] = useState(false);
   const [answer, setAnswer] = useState<GroundedAnswer | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [passagesExpanded, setPassagesExpanded] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveToast, setSaveToast] = useState<string | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (initialQuery && initialQuery !== question) {
       setQuestion(initialQuery);
       handleSubmit(initialQuery);
     }
   }, [initialQuery]);
-  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (restoredQuestion) {
+      setQuestion(restoredQuestion.question);
+      setAnswer({
+        question: restoredQuestion.question,
+        answer: restoredQuestion.answer,
+        citations: restoredQuestion.citations || [],
+        retrieved_passages: restoredQuestion.passages || [],
+        tier_applied: restoredQuestion.tier_applied || "grounded",
+        is_refusal: restoredQuestion.tier_applied?.includes("refusal") || false,
+        model_name: "gemma-4-26b-a4b-it",
+        latency_ms: 0,
+        similarity_threshold: 0.32,
+      });
+      setSaved(true);
+    }
+  }, [restoredQuestion]);
 
   const handleSubmit = async (qText?: string) => {
     const q = (qText || question).trim();
     if (!q) return;
     setLoading(true);
     setError(null);
+    setSaved(false);
+    setSaveToast(null);
+
     try {
       const res = await askQuestion(q);
       setAnswer(res);
@@ -70,21 +101,54 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleSaveToSupabase = async () => {
+    if (!answer) return;
+    if (!user) {
+      openAuthModal("login");
+      return;
+    }
+    setSaving(true);
+    try {
+      await saveQuestionToDb({
+        repoOwner: repository?.owner || "pallets",
+        repoName: repository?.repo || "flask",
+        question: answer.question,
+        answer: answer.answer,
+        citations: answer.citations,
+        passages: answer.retrieved_passages,
+        tierApplied: answer.tier_applied,
+        similarityScore: answer.retrieved_passages[0]?.similarity_score,
+      });
+      setSaved(true);
+      setSaveToast("Saved to your Supabase notebook!");
+      await refreshSavedCounts();
+      setTimeout(() => setSaveToast(null), 3000);
+    } catch (err: any) {
+      setError("Failed to save question: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div style={{ maxWidth: 1200, margin: "2rem auto", padding: "0 1.5rem" }}>
       {/* Intro Header */}
       <div style={{ marginBottom: "1.75rem" }}>
-        <h1 style={{
-          fontSize: "1.6rem",
-          fontWeight: 600,
-          color: "var(--text-primary)",
-          letterSpacing: "-0.015em",
-          marginBottom: "0.4rem",
-        }}>
+        <h1
+          style={{
+            fontSize: "1.6rem",
+            fontWeight: 600,
+            color: "var(--text-primary)",
+            letterSpacing: "-0.015em",
+            marginBottom: "0.4rem",
+          }}
+        >
           Ask the Field Guide
         </h1>
         <p style={{ fontSize: "0.88rem", color: "var(--text-secondary)", maxWidth: 750 }}>
-          Grounded answers derived strictly from {repository ? `${repository.owner}/${repository.repo}` : "repository"} documentation. Every answer cites source files; unsupported inquiries are safely refused.{" "}
+          Grounded answers derived strictly from{" "}
+          {repository ? `${repository.owner}/${repository.repo}` : "repository"} documentation. Every answer
+          cites source files; unsupported inquiries are safely refused.{" "}
           <button
             type="button"
             onClick={onSelectChecklistTab}
@@ -104,13 +168,15 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
       </div>
 
       {/* Query Composer */}
-      <div style={{
-        backgroundColor: "var(--bg-surface-1)",
-        border: "1px solid var(--border-hairline)",
-        borderRadius: 6,
-        padding: "1rem",
-        marginBottom: "1.5rem",
-      }}>
+      <div
+        style={{
+          backgroundColor: "var(--bg-surface-1)",
+          border: "1px solid var(--border-hairline)",
+          borderRadius: 6,
+          padding: "1rem",
+          marginBottom: "1.5rem",
+        }}
+      >
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -118,12 +184,14 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
           }}
           style={{ display: "flex", gap: "0.75rem", alignItems: "flex-start" }}
         >
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            paddingTop: "0.3rem",
-            color: "var(--accent-brass)",
-          }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              paddingTop: "0.3rem",
+              color: "var(--accent-brass)",
+            }}
+          >
             <Terminal size={18} />
           </div>
 
@@ -174,7 +242,15 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
         </form>
 
         {/* Starter suggestion chips */}
-        <div style={{ marginTop: "0.85rem", display: "flex", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
+        <div
+          style={{
+            marginTop: "0.85rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.45rem",
+            flexWrap: "wrap",
+          }}
+        >
           <span style={{ fontSize: "0.72rem", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
             Try:
           </span>
@@ -202,17 +278,40 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
         </div>
       </div>
 
+      {/* Save Toast Notification */}
+      {saveToast && (
+        <div
+          style={{
+            padding: "0.65rem 1rem",
+            backgroundColor: "rgba(78, 159, 118, 0.15)",
+            border: "1px solid rgba(78, 159, 118, 0.35)",
+            borderRadius: 4,
+            color: "var(--accent-forest)",
+            fontSize: "0.82rem",
+            marginBottom: "1rem",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          <CheckCircle2 size={15} />
+          <span>{saveToast}</span>
+        </div>
+      )}
+
       {/* Error notification */}
       {error && (
-        <div style={{
-          padding: "0.85rem 1rem",
-          backgroundColor: "var(--accent-terracotta-dim)",
-          border: "1px solid var(--accent-terracotta)",
-          borderRadius: 4,
-          color: "var(--accent-terracotta)",
-          fontSize: "0.85rem",
-          marginBottom: "1.5rem",
-        }}>
+        <div
+          style={{
+            padding: "0.85rem 1rem",
+            backgroundColor: "var(--accent-terracotta-dim)",
+            border: "1px solid var(--accent-terracotta)",
+            borderRadius: 4,
+            color: "var(--accent-terracotta)",
+            fontSize: "0.85rem",
+            marginBottom: "1.5rem",
+          }}
+        >
           {error}
         </div>
       )}
@@ -221,103 +320,160 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
       {answer && (
         <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
           {/* Main Answer Card */}
-          <div style={{
-            backgroundColor: "var(--bg-surface-1)",
-            border: `1px solid ${answer.is_refusal ? "var(--accent-terracotta)" : "var(--border-hairline)"}`,
-            borderRadius: 6,
-            padding: "1.25rem 1.5rem",
-          }}>
+          <div
+            style={{
+              backgroundColor: "var(--bg-surface-1)",
+              border: `1px solid ${answer.is_refusal ? "var(--accent-terracotta)" : "var(--border-hairline)"}`,
+              borderRadius: 6,
+              padding: "1.25rem 1.5rem",
+            }}
+          >
             {/* Meta bar */}
-            <div style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "1rem",
-              paddingBottom: "0.6rem",
-              borderBottom: "1px solid var(--border-hairline)",
-              flexWrap: "wrap",
-              gap: "0.5rem",
-            }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "1rem",
+                paddingBottom: "0.6rem",
+                borderBottom: "1px solid var(--border-hairline)",
+                flexWrap: "wrap",
+                gap: "0.5rem",
+              }}
+            >
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 {answer.is_refusal ? (
-                  <span style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.3rem",
-                    fontSize: "0.72rem",
-                    fontFamily: "var(--font-mono)",
-                    padding: "2px 6px",
-                    borderRadius: 3,
-                    backgroundColor: "var(--accent-terracotta-dim)",
-                    color: "var(--accent-terracotta)",
-                    border: "1px solid var(--accent-terracotta)",
-                  }}>
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.3rem",
+                      fontSize: "0.72rem",
+                      fontFamily: "var(--font-mono)",
+                      padding: "2px 6px",
+                      borderRadius: 3,
+                      backgroundColor: "var(--accent-terracotta-dim)",
+                      color: "var(--accent-terracotta)",
+                      border: "1px solid var(--accent-terracotta)",
+                    }}
+                  >
                     <ShieldAlert size={12} />
                     Verifiable Refusal Guarantee
                   </span>
                 ) : (
-                  <span style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.3rem",
-                    fontSize: "0.72rem",
-                    fontFamily: "var(--font-mono)",
-                    padding: "2px 6px",
-                    borderRadius: 3,
-                    backgroundColor: "var(--accent-brass-dim)",
-                    color: "var(--accent-brass)",
-                    border: "1px solid var(--accent-brass)",
-                  }}>
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.3rem",
+                      fontSize: "0.72rem",
+                      fontFamily: "var(--font-mono)",
+                      padding: "2px 6px",
+                      borderRadius: 3,
+                      backgroundColor: "var(--accent-brass-dim)",
+                      color: "var(--accent-brass)",
+                      border: "1px solid var(--accent-brass)",
+                    }}
+                  >
                     <Sparkles size={12} />
                     Evidence-Grounded Answer
                   </span>
                 )}
-                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                <span
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "var(--text-muted)",
+                    fontFamily: "var(--font-mono)",
+                  }}
+                >
                   Model: {answer.model_name} • Latency: {answer.latency_ms}ms
                 </span>
               </div>
 
-              <button
-                type="button"
-                onClick={handleCopy}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.3rem",
-                  background: "transparent",
-                  border: "none",
-                  color: "var(--text-muted)",
-                  fontSize: "0.75rem",
-                  cursor: "pointer",
-                }}
-              >
-                {copied ? <Check size={13} color="var(--accent-forest)" /> : <Copy size={13} />}
-                <span>{copied ? "Copied" : "Copy"}</span>
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                {/* Save to Supabase Button */}
+                <button
+                  type="button"
+                  onClick={handleSaveToSupabase}
+                  disabled={saving}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.35rem",
+                    background: saved ? "rgba(78, 159, 118, 0.15)" : "var(--bg-surface-2)",
+                    border: `1px solid ${saved ? "rgba(78, 159, 118, 0.35)" : "var(--border-hairline)"}`,
+                    color: saved ? "var(--accent-forest)" : "var(--accent-brass)",
+                    fontSize: "0.75rem",
+                    fontWeight: 500,
+                    padding: "3px 8px",
+                    borderRadius: 4,
+                    cursor: saving ? "wait" : "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  {saving ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : saved ? (
+                    <Check size={12} />
+                  ) : (
+                    <Bookmark size={12} />
+                  )}
+                  <span>{saved ? "Saved to Supabase" : "Save Question"}</span>
+                </button>
+
+                {/* Copy Button */}
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.3rem",
+                    background: "transparent",
+                    border: "none",
+                    color: "var(--text-muted)",
+                    fontSize: "0.75rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  {copied ? <Check size={13} color="var(--accent-forest)" /> : <Copy size={13} />}
+                  <span>{copied ? "Copied" : "Copy"}</span>
+                </button>
+              </div>
             </div>
 
             {/* Answer Content */}
-            <div style={{
-              fontSize: "0.95rem",
-              lineHeight: 1.65,
-              color: "var(--text-primary)",
-              whiteSpace: "pre-wrap",
-            }}>
+            <div
+              style={{
+                fontSize: "0.95rem",
+                lineHeight: 1.65,
+                color: "var(--text-primary)",
+                whiteSpace: "pre-wrap",
+              }}
+            >
               {answer.answer}
             </div>
 
             {/* Citations list */}
             {answer.citations.length > 0 && (
-              <div style={{ marginTop: "1.25rem", paddingTop: "0.85rem", borderTop: "1px solid var(--border-hairline)" }}>
-                <span style={{
-                  fontSize: "0.72rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
-                  color: "var(--text-muted)",
-                  fontFamily: "var(--font-mono)",
-                  display: "block",
-                  marginBottom: "0.5rem",
-                }}>
+              <div
+                style={{
+                  marginTop: "1.25rem",
+                  paddingTop: "0.85rem",
+                  borderTop: "1px solid var(--border-hairline)",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "0.72rem",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                    color: "var(--text-muted)",
+                    fontFamily: "var(--font-mono)",
+                    display: "block",
+                    marginBottom: "0.5rem",
+                  }}
+                >
                   Source Citations:
                 </span>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
@@ -343,7 +499,9 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                       title={c.snippet}
                     >
                       <FileText size={12} />
-                      <span>{c.file_path} {c.start_line ? `#L${c.start_line}-${c.end_line}` : ""}</span>
+                      <span>
+                        {c.file_path} {c.start_line ? `#L${c.start_line}-${c.end_line}` : ""}
+                      </span>
                       <ExternalLink size={10} color="var(--text-muted)" />
                     </a>
                   ))}
@@ -352,129 +510,121 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             )}
           </div>
 
-          {/* Retrieved Passages Drawer */}
-          <div style={{
-            backgroundColor: "var(--bg-surface-1)",
-            border: "1px solid var(--border-hairline)",
-            borderRadius: 6,
-            overflow: "hidden",
-          }}>
-            <button
-              type="button"
-              onClick={() => setPassagesExpanded(!passagesExpanded)}
+          {/* Retrieved Passages (Evidence Inspector) */}
+          {answer.retrieved_passages.length > 0 && (
+            <div
               style={{
-                width: "100%",
-                padding: "0.75rem 1.25rem",
-                backgroundColor: "var(--bg-surface-2)",
-                border: "none",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                color: "var(--text-primary)",
-                cursor: "pointer",
-                fontSize: "0.82rem",
-                fontWeight: 600,
+                backgroundColor: "var(--bg-surface-1)",
+                border: "1px solid var(--border-hairline)",
+                borderRadius: 6,
+                padding: "1rem 1.25rem",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
-                <Layers size={14} color="var(--accent-brass)" />
-                <span>Retrieved Passages & Vector Relevance ({answer.retrieved_passages.length} passages evaluated)</span>
-              </div>
-              {passagesExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-            </button>
-
-            {passagesExpanded && (
-              <div style={{ padding: "1.25rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-                {answer.retrieved_passages.map((p, idx) => (
-                  <div
-                    key={idx}
+              <div
+                onClick={() => setPassagesExpanded(!passagesExpanded)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  cursor: "pointer",
+                  userSelect: "none",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <Layers size={14} color="var(--accent-brass)" />
+                  <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                    Retrieved Passages & Cosine Similarity Inspector ({answer.retrieved_passages.length})
+                  </span>
+                  <span
                     style={{
-                      padding: "0.85rem 1rem",
-                      backgroundColor: "var(--bg-surface-2)",
-                      border: "1px solid var(--border-hairline)",
-                      borderRadius: 4,
+                      fontSize: "0.7rem",
+                      color: "var(--text-muted)",
+                      fontFamily: "var(--font-mono)",
                     }}
                   >
-                    <div style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "0.5rem",
-                      flexWrap: "wrap",
-                      gap: "0.4rem",
-                    }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                        <span style={{
-                          fontSize: "0.72rem",
-                          fontFamily: "var(--font-mono)",
-                          color: "var(--text-muted)",
-                        }}>
-                          Passage #{p.rank}
-                        </span>
-                        <span style={{
-                          fontSize: "0.8rem",
-                          fontWeight: 600,
-                          color: "var(--text-primary)",
-                          fontFamily: "var(--font-mono)",
-                        }}>
-                          {p.chunk.file_path}
-                        </span>
-                        {p.chunk.heading && (
-                          <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                            • {p.chunk.heading}
-                          </span>
-                        )}
-                      </div>
+                    Threshold: {answer.similarity_threshold ?? 0.32}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--text-muted)",
+                    cursor: "pointer",
+                    padding: 0,
+                  }}
+                >
+                  {passagesExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+              </div>
 
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                        <span style={{
-                          fontSize: "0.72rem",
-                          fontFamily: "var(--font-mono)",
-                          padding: "2px 6px",
-                          borderRadius: 3,
-                          backgroundColor: p.similarity_score >= 0.45 ? "var(--accent-forest-dim)" : "var(--bg-surface-3)",
-                          color: p.similarity_score >= 0.45 ? "var(--accent-forest)" : "var(--text-secondary)",
-                          border: `1px solid ${p.similarity_score >= 0.45 ? "var(--accent-forest)" : "var(--border-hairline)"}`,
-                        }}>
-                          sim: {p.similarity_score.toFixed(4)}
-                        </span>
-
-                        <a
-                          href={`${p.chunk.file_url}#L${p.chunk.start_line}-L${p.chunk.end_line}`}
-                          target="_blank"
-                          rel="noreferrer"
+              {passagesExpanded && (
+                <div
+                  style={{
+                    marginTop: "0.85rem",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.65rem",
+                  }}
+                >
+                  {answer.retrieved_passages.map((p, idx) => {
+                    const threshold = answer.similarity_threshold ?? 0.32;
+                    const isAbove = p.similarity_score >= threshold;
+                    return (
+                      <div
+                        key={idx}
+                        style={{
+                          backgroundColor: "var(--bg-surface-2)",
+                          border: "1px solid var(--border-hairline)",
+                          borderRadius: 4,
+                          padding: "0.75rem 0.85rem",
+                        }}
+                      >
+                        <div
                           style={{
                             display: "flex",
+                            justifyContent: "space-between",
                             alignItems: "center",
-                            gap: "0.25rem",
+                            marginBottom: "0.4rem",
                             fontSize: "0.72rem",
-                            color: "var(--accent-brass)",
-                            textDecoration: "none",
+                            fontFamily: "var(--font-mono)",
                           }}
                         >
-                          Lines {p.chunk.start_line}–{p.chunk.end_line}
-                          <ExternalLink size={10} />
-                        </a>
+                          <span style={{ color: "var(--accent-brass)" }}>
+                            {p.chunk?.file_path || "source.md"}{" "}
+                            {p.chunk?.start_line ? `#L${p.chunk.start_line}-${p.chunk.end_line}` : ""}
+                          </span>
+                          <span
+                            style={{
+                              padding: "1px 5px",
+                              borderRadius: 2,
+                              backgroundColor: isAbove ? "var(--accent-forest-dim)" : "var(--accent-terracotta-dim)",
+                              color: isAbove ? "var(--accent-forest)" : "var(--accent-terracotta)",
+                              border: `1px solid ${isAbove ? "var(--accent-forest)" : "var(--accent-terracotta)"}`,
+                            }}
+                          >
+                            Cosine Score: {p.similarity_score.toFixed(3)}
+                          </span>
+                        </div>
+                        <p
+                          style={{
+                            fontSize: "0.8rem",
+                            color: "var(--text-secondary)",
+                            lineHeight: 1.5,
+                            whiteSpace: "pre-wrap",
+                            fontFamily: "var(--font-mono)",
+                          }}
+                        >
+                          {p.chunk?.content || ""}
+                        </p>
                       </div>
-                    </div>
-
-                    <pre style={{
-                      fontSize: "0.78rem",
-                      lineHeight: 1.5,
-                      padding: "0.6rem 0.85rem",
-                      backgroundColor: "var(--bg-canvas)",
-                      color: "var(--text-secondary)",
-                      border: "1px solid var(--border-hairline)",
-                      whiteSpace: "pre-wrap",
-                      wordBreak: "break-word",
-                    }}>
-                      {p.chunk.content}
-                    </pre>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

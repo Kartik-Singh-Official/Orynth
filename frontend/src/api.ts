@@ -58,6 +58,8 @@ export interface GroundedAnswer {
   retrieved_passages: RetrievedPassage[];
   model_name: string;
   latency_ms: number;
+  similarity_threshold?: number;
+  tier_applied?: string;
 }
 
 export interface OnboardingStep {
