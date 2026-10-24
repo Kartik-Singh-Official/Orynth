@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Send,
   Loader2,
@@ -50,12 +50,31 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   const [saving, setSaving] = useState(false);
   const [saveToast, setSaveToast] = useState<string | null>(null);
 
+  const handleSubmit = useCallback(async (qText?: string) => {
+    const q = (qText || question).trim();
+    if (!q) return;
+    setLoading(true);
+    setError(null);
+    setSaved(false);
+    setSaveToast(null);
+
+    try {
+      const res = await askQuestion(q);
+      setAnswer(res);
+      setQuestion(q);
+    } catch (err: any) {
+      setError(err.message || "Failed to retrieve grounded answer.");
+    } finally {
+      setLoading(false);
+    }
+  }, [question]);
+
   useEffect(() => {
     if (initialQuery && initialQuery !== question) {
       setQuestion(initialQuery);
       handleSubmit(initialQuery);
     }
-  }, [initialQuery]);
+  }, [initialQuery, question, handleSubmit]);
 
   useEffect(() => {
     if (restoredQuestion) {
@@ -74,25 +93,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
       setSaved(true);
     }
   }, [restoredQuestion]);
-
-  const handleSubmit = async (qText?: string) => {
-    const q = (qText || question).trim();
-    if (!q) return;
-    setLoading(true);
-    setError(null);
-    setSaved(false);
-    setSaveToast(null);
-
-    try {
-      const res = await askQuestion(q);
-      setAnswer(res);
-      setQuestion(q);
-    } catch (err: any) {
-      setError(err.message || "Failed to retrieve grounded answer.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleCopy = () => {
     if (!answer) return;

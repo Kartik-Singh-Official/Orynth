@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   ExternalLink,
   ArrowRight,
@@ -26,11 +26,7 @@ export const ChecklistView: React.FC<ChecklistViewProps> = ({ onAskAboutStep }) 
   const [savedChecklist, setSavedChecklist] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadChecklist();
-  }, []);
-
-  const loadChecklist = async () => {
+  const loadChecklist = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -41,7 +37,11 @@ export const ChecklistView: React.FC<ChecklistViewProps> = ({ onAskAboutStep }) 
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadChecklist();
+  }, [loadChecklist]);
 
   const toggleStepCompleted = (stepNumber: number) => {
     const id = String(stepNumber);

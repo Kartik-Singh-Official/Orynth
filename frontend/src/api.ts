@@ -3,7 +3,22 @@
  * Connects to FastAPI RAG backend at http://localhost:8000
  */
 
-const API_BASE = "http://localhost:8000/api";
+export function getApiBase(): string {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (envUrl && envUrl.trim()) {
+    const clean = envUrl.trim().replace(/\/+$/, "");
+    return clean.endsWith("/api") ? clean : `${clean}/api`;
+  }
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host === "localhost" || host === "127.0.0.1") {
+      return "http://127.0.0.1:8000/api";
+    }
+  }
+  return "/api";
+}
+
+export const API_BASE = getApiBase();
 
 export interface RepositoryMetadata {
   owner: string;

@@ -1,0 +1,12 @@
+{
+  "name": "orynth",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Evidence-grounded open-source contributor guide powered by Google Gemma 4 and Supabase",
+  "scripts": {
+    "build": "npm --prefix frontend run build",
+    "dev": "npm --prefix frontend run dev",
+    "start": "npm --prefix frontend run preview",
+    "install": "npm --prefix frontend install"
+  }
+}
