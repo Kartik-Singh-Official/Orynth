@@ -20,6 +20,7 @@ import {
 import { askQuestion, type GroundedAnswer, type RepositoryMetadata } from "../api";
 import { useAuth } from "../context/AuthContext";
 import { saveQuestionToDb, type SavedQuestion } from "../supabase";
+import { StructuredAnswerView } from "./StructuredAnswerView";
 
 interface WorkspaceViewProps {
   repository: RepositoryMetadata | null;
@@ -525,18 +526,11 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
               </div>
             </div>
 
-            {/* Answer Content */}
-            <div
-              style={{
-                fontSize: "0.98rem",
-                lineHeight: 1.7,
-                color: "var(--text-primary)",
-                whiteSpace: "pre-wrap",
-                letterSpacing: "-0.01em",
-              }}
-            >
-              {answer.answer}
+            {/* Structured & Appealing Answer Content */}
+            <div style={{ marginTop: "0.25rem" }}>
+              <StructuredAnswerView content={answer.answer} />
             </div>
+
 
             {/* Source Citations */}
             {answer.citations.length > 0 && (

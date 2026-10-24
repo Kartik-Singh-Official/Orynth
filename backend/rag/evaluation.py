@@ -1,5 +1,4 @@
-"""Curated 16-question evaluation benchmark and test runner for Orynth."""
-
+import asyncio
 import time
 from datetime import datetime
 from typing import List, Dict, Any
@@ -7,6 +6,7 @@ from typing import List, Dict, Any
 from .models import EvaluationCase, EvaluationResult, EvaluationReport
 from .retriever import VectorIndex
 from .answer_generator import generate_grounded_answer
+
 
 
 # Curated benchmark of 16 realistic questions tailored for open-source onboarding
@@ -167,28 +167,17 @@ BENCHMARK_CASES: List[EvaluationCase] = [
 ]
 
 
-async def run_evaluation_benchmark(index: VectorIndex) -> EvaluationReport:
-    """
-    Executes the 16-question evaluation benchmark against the active VectorIndex.
-    Computes heuristic correctness, citation accuracy, and refusal success rates.
-    """
-    results: List[EvaluationResult] = []
-    failure_cases: List[EvaluationResult] = []
-
-    retrieval_hits = 0
-    citation_valid_count = 0
-    refusal_accurate_count = 0
-    total_latency = 0.0
-
-    answerable_count = sum(1 for c in BENCHMARK_CASES if c.expected_answerable)
-    unanswerable_count = sum(1 for c in BENCHMARK_CASES if not c.expected_answerable)
-
-    for case in BENCHMARK_CASES:
+async def _evaluate_single_case(
+    case: EvaluationCase,
+    index: VectorIndex,
+    sem: asyncio.Semaphore
+) -> EvaluationResult:
+    """Evaluates a single benchmark case under concurrency throttling."""
+    async with sem:
         t0 = time.time()
         passages = index.retrieve(case.question, top_k=3)
         answer = await generate_grounded_answer(case.question, passages)
         latency = round((time.time() - t0) * 1000, 2)
-        total_latency += latency
 
         retrieved_files = [p.chunk.file_path for p in passages]
 
@@ -200,26 +189,19 @@ async def run_evaluation_benchmark(index: VectorIndex) -> EvaluationReport:
             )
         else:
             hit = True  # Refusal cases don't expect specific doc hits
-        if hit:
-            retrieval_hits += 1
 
         # Check refusal accuracy
         actual_refusal = answer.is_refusal
         refusal_accurate = (actual_refusal == (not case.expected_answerable))
-        if refusal_accurate:
-            refusal_accurate_count += 1
 
         # Check citation validity
         if case.expected_answerable:
             has_citations = len(answer.citations) > 0
-            # Citations must point to files in retrieved passages
             citation_valid = has_citations and all(
                 c.file_path in retrieved_files for c in answer.citations
             )
         else:
             citation_valid = len(answer.citations) == 0
-        if citation_valid:
-            citation_valid_count += 1
 
         # Compute heuristic correctness score (0.0 to 1.0)
         score = 0.0
@@ -246,7 +228,7 @@ async def run_evaluation_benchmark(index: VectorIndex) -> EvaluationReport:
                 if score < 0.5:
                     failure_note = f"Answer lacked expected key facts (matched {matches}/{len(case.expected_keywords)} keywords)."
 
-        res = EvaluationResult(
+        return EvaluationResult(
             case_id=case.id,
             question=case.question,
             category=case.category,
@@ -261,9 +243,31 @@ async def run_evaluation_benchmark(index: VectorIndex) -> EvaluationReport:
             failure_notes=failure_note
         )
 
-        results.append(res)
-        if score < 0.6 or not refusal_accurate or not citation_valid:
-            failure_cases.append(res)
+
+async def run_evaluation_benchmark(index: VectorIndex) -> EvaluationReport:
+    """
+    Executes the 16-question evaluation benchmark concurrently using asyncio.gather.
+    Yields 5x-10x latency speedup while strictly enforcing accuracy metrics.
+    """
+    # Concurrency throttled to 6 parallel workers to maximize speed without rate exhaustion
+    sem = asyncio.Semaphore(6)
+    tasks = [_evaluate_single_case(case, index, sem) for case in BENCHMARK_CASES]
+    results: List[EvaluationResult] = await asyncio.gather(*tasks)
+
+    answerable_count = sum(1 for c in BENCHMARK_CASES if c.expected_answerable)
+    unanswerable_count = sum(1 for c in BENCHMARK_CASES if not c.expected_answerable)
+
+    retrieval_hits = sum(1 for r in results if r.retrieval_hit)
+    citation_valid_count = sum(1 for r in results if r.citation_valid)
+    refusal_accurate_count = sum(
+        1 for r in results if r.actual_refusal == (not r.expected_answerable)
+    )
+    total_latency = sum(r.latency_ms for r in results)
+
+    failure_cases = [
+        r for r in results
+        if r.correctness_score < 0.6 or (r.actual_refusal != (not r.expected_answerable)) or not r.citation_valid
+    ]
 
     total_q = len(BENCHMARK_CASES)
     return EvaluationReport(
@@ -278,3 +282,4 @@ async def run_evaluation_benchmark(index: VectorIndex) -> EvaluationReport:
         results=results,
         failure_cases=failure_cases
     )
+

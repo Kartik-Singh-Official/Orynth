@@ -1,12 +1,24 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Play, Loader2, CheckCircle2, AlertTriangle, HelpCircle, FileCheck, ShieldCheck, Clock } from "lucide-react";
 import { runEvaluation, type EvaluationReport } from "../api";
+import { StructuredAnswerView } from "./StructuredAnswerView";
 
 export const EvaluationView: React.FC = () => {
   const [report, setReport] = useState<EvaluationReport | null>(null);
   const [running, setRunning] = useState(false);
+  const [elapsedSec, setElapsedSec] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "answerable" | "refusal" | "failures">("all");
+
+  useEffect(() => {
+    let timer: any;
+    if (running) {
+      setElapsedSec(0);
+      timer = setInterval(() => setElapsedSec((s) => s + 1), 1000);
+    }
+    return () => clearInterval(timer);
+  }, [running]);
+
 
   const handleRunEvaluation = async () => {
     setRunning(true);
@@ -79,9 +91,35 @@ export const EvaluationView: React.FC = () => {
           }}
         >
           {running ? <Loader2 size={15} className="spin" /> : <Play size={15} />}
-          <span>{report ? "Re-Run 16-Question Benchmark" : "Execute 16-Question Benchmark"}</span>
+          <span>{running ? `Running Concurrently... (${elapsedSec}s)` : report ? "Re-Run 16-Question Benchmark" : "Execute 16-Question Benchmark"}</span>
         </button>
       </div>
+
+      {running && (
+        <div
+          className="animate-fade-in glass-panel"
+          style={{
+            padding: "0.85rem 1.25rem",
+            borderRadius: 12,
+            display: "flex",
+            alignItems: "center",
+            gap: "0.75rem",
+            marginBottom: "1.5rem",
+            border: "1px solid rgba(212, 163, 115, 0.3)",
+            backgroundColor: "rgba(212, 163, 115, 0.08)",
+          }}
+        >
+          <Loader2 size={16} className="spin" color="var(--accent-brass)" />
+          <div style={{ flex: 1 }}>
+            <strong style={{ color: "var(--text-primary)", fontSize: "0.86rem" }}>
+              Running 16 evaluation questions in parallel ({elapsedSec}s)
+            </strong>
+            <div style={{ fontSize: "0.74rem", color: "var(--text-secondary)" }}>
+              Evaluating answerable and safe-refusal test cases concurrently with local CPU embeddings...
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div
@@ -99,6 +137,7 @@ export const EvaluationView: React.FC = () => {
           {error}
         </div>
       )}
+
 
       {/* Methodology Note */}
       <div
@@ -262,9 +301,10 @@ export const EvaluationView: React.FC = () => {
                     </div>
                   </div>
 
-                  <p style={{ fontSize: "0.86rem", color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: "0.75rem" }}>
-                    {item.actual_answer}
-                  </p>
+                  <div style={{ marginBottom: "0.75rem", fontSize: "0.86rem" }}>
+                    <StructuredAnswerView content={item.actual_answer} />
+                  </div>
+
 
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", fontSize: "0.74rem", fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>
                     <span>Retrieval Hit: {item.retrieval_hit ? "Yes" : "No"}</span>
