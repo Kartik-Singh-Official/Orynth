@@ -156,8 +156,8 @@ export async function inspectRepository(url: string): Promise<{
     body: JSON.stringify({ url }),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "Inspection failed." }));
-    throw new Error(err.detail || "Repository inspection failed.");
+    const msg = await parseErrorMessage(res, "Repository inspection failed.");
+    throw new Error(msg);
   }
   return res.json();
 }
