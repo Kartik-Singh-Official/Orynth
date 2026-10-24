@@ -64,6 +64,7 @@ class GroundedAnswer(BaseModel):
     retrieved_passages: List[RetrievedPassage] = Field(default_factory=list)
     model_name: str
     latency_ms: float = 0.0
+    cached: bool = False
 
 
 class OnboardingStep(BaseModel):

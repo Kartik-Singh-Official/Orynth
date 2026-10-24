@@ -18,7 +18,11 @@ import {
   clearCustomSupabaseCredentials,
 } from "../supabase";
 
-export const AuthModal: React.FC = () => {
+export interface AuthModalProps {
+  onOpenLegal?: (tab: "terms" | "privacy") => void;
+}
+
+export const AuthModal: React.FC<AuthModalProps> = ({ onOpenLegal }) => {
   const {
     authModalOpen,
     authModalMode,
@@ -655,7 +659,61 @@ export const AuthModal: React.FC = () => {
                   </span>
                 )}
               </div>
+
+              {/* Legal Terms & Privacy Agreement Notice */}
+              <div
+                style={{
+                  textAlign: "center",
+                  fontSize: "0.72rem",
+                  color: "var(--text-muted)",
+                  marginTop: "0.5rem",
+                  lineHeight: 1.4,
+                  borderTop: "1px solid rgba(255, 255, 255, 0.05)",
+                  paddingTop: "0.65rem",
+                }}
+              >
+                By continuing, you agree to Orynth's{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeAuthModal();
+                    onOpenLegal?.("terms");
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--text-secondary)",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                    fontSize: "0.72rem",
+                    padding: 0,
+                  }}
+                >
+                  Terms of Service
+                </button>{" "}
+                and{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeAuthModal();
+                    onOpenLegal?.("privacy");
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--text-secondary)",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                    fontSize: "0.72rem",
+                    padding: 0,
+                  }}
+                >
+                  Privacy Policy
+                </button>
+                .
+              </div>
             </form>
+
           )}
         </div>
       </div>

@@ -7,6 +7,7 @@ import { EvaluationView } from "./components/EvaluationView";
 import { SourcesView } from "./components/SourcesView";
 import { AuthModal } from "./components/AuthModal";
 import { SavedWorkDrawer } from "./components/SavedWorkDrawer";
+import { LegalModal } from "./components/LegalModal";
 import { AuthProvider } from "./context/AuthContext";
 import { fetchHealth, fetchCurrentRepository, type RepositoryMetadata, type DocumentFile } from "./api";
 import type { SavedQuestion } from "./supabase";
@@ -20,6 +21,13 @@ const AppContent: React.FC = () => {
   const [modelName, setModelName] = useState<string>("gemma-4-26b-a4b-it");
   const [prefilledQuery, setPrefilledQuery] = useState<string>("");
   const [restoredQuestion, setRestoredQuestion] = useState<SavedQuestion | null>(null);
+  const [legalModalOpen, setLegalModalOpen] = useState(false);
+  const [legalInitialTab, setLegalInitialTab] = useState<"terms" | "privacy">("terms");
+
+  const openLegalModal = (tab: "terms" | "privacy") => {
+    setLegalInitialTab(tab);
+    setLegalModalOpen(true);
+  };
 
   useEffect(() => {
     initApp();
@@ -104,11 +112,16 @@ const AppContent: React.FC = () => {
         )}
       </main>
 
-      {/* Global Supabase Auth & Saved Work Modals */}
-      <AuthModal />
+      {/* Global Supabase Auth, Saved Work & Legal Modals */}
+      <AuthModal onOpenLegal={openLegalModal} />
       <SavedWorkDrawer onRestoreQuestion={handleRestoreQuestion} />
+      <LegalModal
+        isOpen={legalModalOpen}
+        initialTab={legalInitialTab}
+        onClose={() => setLegalModalOpen(false)}
+      />
 
-      {/* Footer */}
+      {/* Footer — Apple Glass Minimalist */}
       <footer
         style={{
           backgroundColor: "var(--bg-surface-1)",
@@ -116,7 +129,6 @@ const AppContent: React.FC = () => {
           padding: "1.25rem 1.5rem",
           fontSize: "0.78rem",
           color: "var(--text-muted)",
-          textAlign: "center",
         }}
       >
         <div
@@ -127,20 +139,69 @@ const AppContent: React.FC = () => {
             justifyContent: "space-between",
             alignItems: "center",
             flexWrap: "wrap",
-            gap: "0.75rem",
+            gap: "0.85rem",
           }}
         >
-          <div>
-            <strong style={{ color: "var(--text-secondary)" }}>Orynth</strong> — Evidence-grounded AI open-source contributor guide.
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+            <strong style={{ color: "var(--text-secondary)" }}>Orynth</strong>
+            <span>•</span>
+            <span>Evidence-grounded open-source guide</span>
+            <span>•</span>
+            <span style={{ fontFamily: "var(--font-mono)" }}>Gemma 4 & 15 RPM Token Guard</span>
           </div>
-          <div>
-            Saved work securely backed by <strong>Supabase PostgreSQL</strong> with Row Level Security.
-          </div>
-          <div style={{ fontFamily: "var(--font-mono)" }}>
-            Powered by Google Gemma 4 & all-MiniLM-L6-v2 CPU embeddings.
+
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => openLegalModal("terms")}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--text-secondary)",
+                cursor: "pointer",
+                padding: 0,
+                fontSize: "0.78rem",
+                textDecoration: "underline",
+                textUnderlineOffset: 3,
+                transition: "color 0.15s ease",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent-brass)")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}
+            >
+              Terms & Conditions
+            </button>
+
+            <span>•</span>
+
+            <button
+              type="button"
+              onClick={() => openLegalModal("privacy")}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--text-secondary)",
+                cursor: "pointer",
+                padding: 0,
+                fontSize: "0.78rem",
+                textDecoration: "underline",
+                textUnderlineOffset: 3,
+                transition: "color 0.15s ease",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent-brass)")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}
+            >
+              Privacy Policy
+            </button>
+
+            <span>•</span>
+
+            <span style={{ color: "var(--text-muted)" }}>
+              Supabase RLS Protected
+            </span>
           </div>
         </div>
       </footer>
+
     </div>
   );
 };

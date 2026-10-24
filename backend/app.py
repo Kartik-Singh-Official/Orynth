@@ -5,7 +5,7 @@ import time
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -31,6 +31,8 @@ from .rag.retriever import active_index
 from .rag.answer_generator import generate_grounded_answer, DEFAULT_GEMMA_MODEL
 from .rag.checklist_generator import generate_onboarding_checklist
 from .rag.evaluation import run_evaluation_benchmark
+from .rag.rate_limiter import global_rate_limiter
+from .rag.answer_cache import global_answer_cache
 from .sample_data.flask_docs import get_sample_flask_documents, SAMPLE_REPO_METADATA
 
 app = FastAPI(
@@ -80,14 +82,19 @@ async def startup_event():
 
 @app.get("/api/health")
 async def health_check():
-    """Returns system status, active repository, and Gemma model configuration."""
+    """Returns system status, active repository, Gemma model, cache stats, and rate limit policy."""
     api_key_configured = bool(os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMMA_API_KEY"))
     return {
         "status": "healthy",
         "model": DEFAULT_GEMMA_MODEL,
         "api_key_configured": api_key_configured,
         "indexed_chunks_count": len(active_index.chunks),
-        "active_repository": current_repository.repo if current_repository else None
+        "active_repository": current_repository.repo if current_repository else None,
+        "rate_limiting": {
+            "max_requests_per_minute": global_rate_limiter.max_requests_per_minute,
+            "burst_limit_per_10s": global_rate_limiter.burst_limit_per_10s,
+        },
+        "cache": global_answer_cache.stats()
     }
 
 
@@ -175,9 +182,10 @@ async def index_repository(req: IndexRequest):
 
 
 @app.post("/api/rag/ask", response_model=GroundedAnswer)
-async def ask_question(req: AskRequest):
+async def ask_question(req: AskRequest, request: Request, response: Response):
     """
     Retrieves evidence passages and generates a grounded answer with citations.
+    Enforces per-client IP rate limits (15 RPM / 5 per 10s burst) to prevent Gemini API quota exhaustion.
     """
     if not active_index.chunks:
         raise HTTPException(status_code=400, detail="No documentation has been indexed yet.")
@@ -186,9 +194,35 @@ async def ask_question(req: AskRequest):
     if not q:
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
+    # Determine client IP (supporting reverse proxies and Vercel / Render forwarding)
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (request.client.host if request.client else "127.0.0.1")
+
+    # Check sliding window rate limit
+    allowed, retry_after, headers = global_rate_limiter.check_rate_limit(client_ip)
+    for k, v in headers.items():
+        response.headers[k] = v
+
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded: Orynth enforces a 15 requests/minute protection limit to prevent Gemini API token exhaustion. Please wait {retry_after} second(s) before trying again.",
+            headers={"Retry-After": str(retry_after), **headers}
+        )
+
     passages = active_index.retrieve(q, top_k=req.top_k)
     answer = await generate_grounded_answer(q, passages)
     return answer
+
+
+@app.get("/api/rag/rate-limit-status")
+async def get_rate_limit_status(request: Request):
+    """Returns the current rate limit status and cache performance metrics."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (request.client.host if request.client else "127.0.0.1")
+    status = global_rate_limiter.get_status(client_ip)
+    return {
+        "rate_limit": status,
+        "cache": global_answer_cache.stats()
+    }
 
 
 @app.post("/api/rag/checklist", response_model=OnboardingChecklist)

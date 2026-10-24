@@ -75,6 +75,7 @@ export interface GroundedAnswer {
   latency_ms: number;
   similarity_threshold?: number;
   tier_applied?: string;
+  cached?: boolean;
 }
 
 export interface OnboardingStep {
@@ -216,5 +217,29 @@ export async function runEvaluation(): Promise<EvaluationReport> {
     const err = await res.json().catch(() => ({ detail: "Evaluation benchmark failed." }));
     throw new Error(err.detail || "Benchmark run failed.");
   }
+  return res.json();
+}
+
+export interface RateLimitStatusResponse {
+  rate_limit: {
+    client_ip: string;
+    limit_rpm: number;
+    used: number;
+    remaining: number;
+    reset_seconds: number;
+  };
+  cache: {
+    size: number;
+    max_size: number;
+    hits: number;
+    misses: number;
+    hit_ratio_percent: number;
+    ttl_seconds: number;
+  };
+}
+
+export async function fetchRateLimitStatus(): Promise<RateLimitStatusResponse> {
+  const res = await fetch(`${API_BASE}/rag/rate-limit-status`);
+  if (!res.ok) throw new Error("Failed to fetch rate limit status.");
   return res.json();
 }

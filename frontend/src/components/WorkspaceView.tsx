@@ -14,6 +14,8 @@ import {
   Terminal,
   Bookmark,
   CheckCircle2,
+  Zap,
+  Clock,
 } from "lucide-react";
 import { askQuestion, type GroundedAnswer, type RepositoryMetadata } from "../api";
 import { useAuth } from "../context/AuthContext";
@@ -49,10 +51,19 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveToast, setSaveToast] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setTimeout(() => {
+      setCooldown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
 
   const handleSubmit = useCallback(async (qText?: string) => {
     const q = (qText || question).trim();
-    if (!q) return;
+    if (!q || cooldown > 0) return;
     setLoading(true);
     setError(null);
     setSaved(false);
@@ -62,12 +73,14 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
       const res = await askQuestion(q);
       setAnswer(res);
       setQuestion(q);
+      // Initiate 3-second cooldown to preserve Gemini API rate limits
+      setCooldown(3);
     } catch (err: any) {
       setError(err.message || "Failed to retrieve grounded answer.");
     } finally {
       setLoading(false);
     }
-  }, [question]);
+  }, [question, cooldown]);
 
   useEffect(() => {
     if (initialQuery && initialQuery !== question) {
@@ -222,29 +235,50 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 
           <button
             type="submit"
-            disabled={loading || !question.trim()}
+            disabled={loading || !question.trim() || cooldown > 0}
             style={{
               padding: "0.55rem 1.25rem",
               borderRadius: 9999,
-              background: question.trim()
+              background: cooldown > 0
+                ? "rgba(255, 255, 255, 0.05)"
+                : question.trim()
                 ? "linear-gradient(135deg, #E4B589 0%, #D4A373 100%)"
                 : "rgba(255, 255, 255, 0.08)",
-              color: question.trim() ? "#121316" : "var(--text-muted)",
+              color: cooldown > 0
+                ? "var(--text-muted)"
+                : question.trim()
+                ? "#121316"
+                : "var(--text-muted)",
               border: "none",
               fontWeight: 600,
               fontSize: "0.85rem",
-              cursor: loading ? "wait" : question.trim() ? "pointer" : "default",
+              cursor: loading ? "wait" : cooldown > 0 ? "not-allowed" : question.trim() ? "pointer" : "default",
               display: "flex",
               alignItems: "center",
               gap: "0.45rem",
-              boxShadow: question.trim() ? "0 2px 10px rgba(212, 163, 115, 0.28)" : "none",
+              boxShadow: question.trim() && cooldown === 0 ? "0 2px 10px rgba(212, 163, 115, 0.28)" : "none",
               transition: "all 0.2s var(--ease-apple)",
             }}
           >
-            {loading ? <Loader2 size={14} className="spin" /> : <Send size={14} />}
-            <span>Inquire</span>
+            {loading ? (
+              <>
+                <Loader2 size={14} className="spin" />
+                <span>Inquiring...</span>
+              </>
+            ) : cooldown > 0 ? (
+              <>
+                <Clock size={14} />
+                <span>Wait {cooldown}s</span>
+              </>
+            ) : (
+              <>
+                <Send size={14} />
+                <span>Inquire</span>
+              </>
+            )}
           </button>
         </form>
+
 
         {/* Suggested Prompt Chips */}
         <div
@@ -312,16 +346,30 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
         <div
           className="animate-fade-in"
           style={{
-            padding: "0.85rem 1.1rem",
+            padding: "1rem 1.25rem",
             backgroundColor: "rgba(224, 122, 95, 0.12)",
-            border: "1px solid rgba(224, 122, 95, 0.25)",
-            borderRadius: 8,
-            color: "var(--accent-terracotta)",
-            fontSize: "0.85rem",
+            border: "1px solid rgba(224, 122, 95, 0.3)",
+            borderRadius: 10,
+            color: "var(--text-primary)",
+            fontSize: "0.86rem",
             marginBottom: "1.5rem",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "0.75rem",
           }}
         >
-          {error}
+          <Clock size={18} style={{ flexShrink: 0, marginTop: 2, color: "var(--accent-terracotta)" }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600, color: "var(--accent-terracotta)", marginBottom: "0.2rem" }}>
+              {error.toLowerCase().includes("rate limit") ? "Gemini Rate Limit Protection" : "Inquiry Notice"}
+            </div>
+            <div style={{ color: "var(--text-secondary)", lineHeight: 1.5 }}>{error}</div>
+            {error.toLowerCase().includes("rate limit") && (
+              <div style={{ fontSize: "0.74rem", color: "var(--text-muted)", marginTop: "0.4rem" }}>
+                Tip: Rate limits protect the shared Google AI Studio free-tier token quota. Repeated identical queries hit the in-memory cache and consume 0 tokens.
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -352,7 +400,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 gap: "0.6rem",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
                 {answer.is_refusal ? (
                   <span
                     style={{
@@ -392,6 +440,28 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                     Evidence-Grounded Answer
                   </span>
                 )}
+
+                {answer.cached && (
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.35rem",
+                      fontSize: "0.72rem",
+                      fontFamily: "var(--font-mono)",
+                      padding: "2px 8px",
+                      borderRadius: 9999,
+                      backgroundColor: "rgba(78, 159, 118, 0.15)",
+                      color: "var(--accent-forest)",
+                      border: "1px solid rgba(78, 159, 118, 0.35)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <Zap size={11} />
+                    Cached (0 Tokens Used)
+                  </span>
+                )}
+
                 <span
                   style={{
                     fontSize: "0.75rem",
@@ -402,6 +472,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                   {answer.model_name} • {answer.latency_ms}ms
                 </span>
               </div>
+
 
               <div style={{ display: "flex", alignItems: "center", gap: "0.55rem" }}>
                 {/* Save to Supabase Glass Button */}
