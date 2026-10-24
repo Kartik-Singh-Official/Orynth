@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 EMBED_MODEL_NAME = os.environ.get("EMBED_MODEL", "gemini-embedding-001")
+EMBED_DIMENSION = 3072
 MAX_EMBEDDING_CACHE = 5000
 
 _embedding_cache: OrderedDict[str, np.ndarray] = OrderedDict()
@@ -43,7 +44,7 @@ def _cache_vector(text: str, vector: np.ndarray) -> None:
     _embedding_cache[text] = vector
 
 
-def _fallback_hash_embedding(text: str, dim: int = 384) -> np.ndarray:
+def _fallback_hash_embedding(text: str, dim: int = EMBED_DIMENSION) -> np.ndarray:
     """Fast, zero-dependency semantic hash embedding for offline / demo mode."""
     words = text.lower().split()
     vec = np.zeros(dim, dtype=np.float32)
@@ -59,8 +60,10 @@ def _fallback_hash_embedding(text: str, dim: int = 384) -> np.ndarray:
 def embed_text(text: str) -> np.ndarray:
     """Computes a unit-normalized embedding vector for a single text."""
     if text in _embedding_cache:
-        _embedding_cache.move_to_end(text)
-        return _embedding_cache[text]
+        cached = _embedding_cache[text]
+        if len(cached) == EMBED_DIMENSION:
+            _embedding_cache.move_to_end(text)
+            return cached
 
     client = _get_genai_client()
     if client is not None:
@@ -77,7 +80,7 @@ def embed_text(text: str) -> np.ndarray:
         except Exception:
             pass
 
-    vec = _fallback_hash_embedding(text)
+    vec = _fallback_hash_embedding(text, dim=EMBED_DIMENSION)
     _cache_vector(text, vec)
     return vec
 
@@ -90,39 +93,43 @@ def embed_texts(texts: List[str]) -> np.ndarray:
 
     for i, t in enumerate(texts):
         if t in _embedding_cache:
-            _embedding_cache.move_to_end(t)
-            results[i] = _embedding_cache[t]
-        else:
-            uncached_indices.append(i)
-            uncached_texts.append(t)
+            cached = _embedding_cache[t]
+            if len(cached) == EMBED_DIMENSION:
+                _embedding_cache.move_to_end(t)
+                results[i] = cached
+                continue
+        uncached_indices.append(i)
+        uncached_texts.append(t)
 
     if uncached_texts:
         client = _get_genai_client()
-        computed_vectors = []
-        if client is not None:
-            try:
-                # Batch in groups of 50
-                batch_size = 50
-                for b_start in range(0, len(uncached_texts), batch_size):
-                    batch = uncached_texts[b_start:b_start + batch_size]
+        # Batch in safe groups of 40 to stay comfortably within Google AI Studio limits
+        batch_size = 40
+        for b_start in range(0, len(uncached_texts), batch_size):
+            b_texts = uncached_texts[b_start:b_start + batch_size]
+            b_indices = uncached_indices[b_start:b_start + batch_size]
+
+            vectors = []
+            if client is not None:
+                try:
                     resp = client.models.embed_content(
                         model=EMBED_MODEL_NAME,
-                        contents=batch
+                        contents=b_texts
                     )
                     for emb in resp.embeddings:
                         raw = np.array(emb.values, dtype=np.float32)
                         norm = np.linalg.norm(raw)
                         vec = (raw / norm) if norm > 0 else raw
-                        computed_vectors.append(vec)
-            except Exception:
-                computed_vectors = []
+                        vectors.append(vec)
+                except Exception:
+                    vectors = []
 
-        if len(computed_vectors) != len(uncached_texts):
-            # Fallback for any uncomputed
-            computed_vectors = [_fallback_hash_embedding(t) for t in uncached_texts]
+            # Per-batch fallback if quota is exceeded or transient network error occurs
+            if len(vectors) != len(b_texts):
+                vectors = [_fallback_hash_embedding(t, dim=EMBED_DIMENSION) for t in b_texts]
 
-        for idx, text, vec in zip(uncached_indices, uncached_texts, computed_vectors):
-            _cache_vector(text, vec)
-            results[idx] = vec
+            for idx, text, vec in zip(b_indices, b_texts, vectors):
+                _cache_vector(text, vec)
+                results[idx] = vec
 
     return np.array(results, dtype=np.float32)

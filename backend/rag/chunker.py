@@ -83,13 +83,39 @@ def chunk_document(
     return chunks
 
 
+MAX_TOTAL_CHUNKS = 80
+
+
 def chunk_multiple_documents(
     docs: List[DocumentFile],
     chunk_size: int = DEFAULT_CHUNK_SIZE,
-    chunk_overlap: int = DEFAULT_CHUNK_OVERLAP
+    chunk_overlap: int = DEFAULT_CHUNK_OVERLAP,
+    max_chunks: int = MAX_TOTAL_CHUNKS
 ) -> List[DocumentChunk]:
-    """Chunks a list of DocumentFiles and returns a flattened list of DocumentChunks."""
+    """
+    Chunks a list of DocumentFiles, prioritizing key onboarding documents (CONTRIBUTING, README, SETUP),
+    and safely caps total chunks to stay within API rate limits and achieve fast indexing.
+    """
+    def priority_sort_key(doc: DocumentFile) -> int:
+        p = doc.path.lower()
+        if "contributing" in p:
+            return 0
+        if "readme" in p:
+            return 1
+        if any(k in p for k in ("setup", "install", "develop", "architecture")):
+            return 2
+        if "code_of_conduct" in p:
+            return 3
+        return 4
+
+    sorted_docs = sorted(docs, key=priority_sort_key)
     all_chunks: List[DocumentChunk] = []
-    for doc in docs:
-        all_chunks.extend(chunk_document(doc, chunk_size=chunk_size, chunk_overlap=chunk_overlap))
+
+    for doc in sorted_docs:
+        doc_chunks = chunk_document(doc, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+        for chunk in doc_chunks:
+            all_chunks.append(chunk)
+            if len(all_chunks) >= max_chunks:
+                return all_chunks
+
     return all_chunks

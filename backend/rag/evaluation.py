@@ -2,7 +2,7 @@ import os
 import asyncio
 import time
 from datetime import datetime, timezone
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from .models import EvaluationCase, EvaluationResult, EvaluationReport
 from .retriever import VectorIndex
@@ -246,15 +246,17 @@ async def _evaluate_single_case(
         )
 
 
-async def run_evaluation_benchmark(index: VectorIndex) -> EvaluationReport:
+async def run_evaluation_benchmark(index: Optional[VectorIndex] = None) -> EvaluationReport:
     """
     Executes the 16-question evaluation benchmark concurrently.
-    Throttles concurrency to 3 workers (with safe delay if live API key is present)
-    to prevent Gemini 15 RPM quota exhaustion.
+    Throttles concurrency to 4 workers to balance speed and free tier quota limits.
     """
+    if index is None:
+        from .retriever import active_index
+        index = active_index
+
     has_live_api = bool(os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMMA_API_KEY"))
-    # Concurrency throttled to prevent exceeding free tier quotas
-    concurrency_limit = 2 if has_live_api else 6
+    concurrency_limit = 4 if has_live_api else 8
     sem = asyncio.Semaphore(concurrency_limit)
     
     tasks = [_evaluate_single_case(case, index, sem) for case in BENCHMARK_CASES]

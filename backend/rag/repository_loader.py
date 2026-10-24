@@ -6,6 +6,9 @@ import asyncio
 import urllib.parse
 from typing import List, Tuple, Optional, Dict
 import httpx
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from .models import RepositoryMetadata, DocumentFile
 
@@ -35,9 +38,13 @@ PRIORITY_DOC_FILES = [
 ]
 
 DOC_EXTENSIONS = (".md", ".markdown", ".txt", ".rst")
-EXCLUDED_PATTERNS = ("node_modules", "vendor", ".venv", "dist", "build", ".git", "package-lock.json")
+EXCLUDED_PATTERNS = (
+    "node_modules", "vendor", ".venv", "dist", "build", ".git",
+    "package-lock.json", "journals/", "journal/", "archive/", "fixtures/"
+)
+TRANSLATED_DOC_REGEX = re.compile(r"[_\.](?:zh|ko|ja|es|fr|de|id|vi|az|pt|ru|cn|tw|tr)\.(?:md|markdown|rst)$", re.IGNORECASE)
 
-MAX_FILES_LIMIT = 25
+MAX_FILES_LIMIT = 15
 MAX_FILE_SIZE_BYTES = 250_000  # 250 KB
 
 
@@ -173,9 +180,9 @@ async def discover_documentation_files(owner: str, repo: str, default_branch: st
                         lower_path = path.lower()
                         # Match markdown or documentation files
                         if any(lower_path.endswith(ext) for ext in DOC_EXTENSIONS):
-                            if not any(excl in lower_path for excl in EXCLUDED_PATTERNS):
+                            if not any(excl in lower_path for excl in EXCLUDED_PATTERNS) and not TRANSLATED_DOC_REGEX.search(lower_path):
                                 if lower_path.startswith("docs/") or any(p.lower() in lower_path for p in PRIORITY_DOC_FILES) or "/" not in path:
-                                    if path not in seen_paths and len(discovered_files) < MAX_FILES_LIMIT:
+                                    if path not in seen_paths and len(seen_paths) < MAX_FILES_LIMIT:
                                         seen_paths.add(path)
         except Exception:
             pass

@@ -39,17 +39,67 @@ from .sample_data.flask_docs import get_sample_flask_documents, SAMPLE_REPO_META
 # In-memory session state for currently indexed repository
 current_repository: Optional[RepositoryMetadata] = None
 current_documents: List[DocumentFile] = []
+SESSION_CACHE_FILE = Path("/tmp/orynth_session_cache.json")
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Initializes sample repository index so the application is immediately usable."""
+def ensure_active_index():
+    """Guarantees active_index and current_repository are initialized, restoring from /tmp if needed."""
     global current_repository, current_documents
+    if active_index.chunks and current_repository:
+        return
+
+    # Attempt to restore persisted session from /tmp (persists across serverless invocations)
+    if SESSION_CACHE_FILE.exists():
+        try:
+            import json
+            with open(SESSION_CACHE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            meta_dict = data.get("metadata")
+            if meta_dict:
+                current_repository = RepositoryMetadata(**meta_dict)
+                current_documents = [DocumentFile(**d) for d in data.get("documents", [])]
+                chunks = [DocumentChunk(**c) for c in data.get("chunks", [])]
+                repo_key = f"{current_repository.owner}/{current_repository.repo}"
+                active_index.index_chunks(repo_key, chunks)
+                return
+        except Exception:
+            pass
+
+    # Default to sample repository so system is never empty
     sample_docs = get_sample_flask_documents()
     chunks = chunk_multiple_documents(sample_docs)
     active_index.index_chunks("pallets/flask", chunks)
     current_repository = SAMPLE_REPO_METADATA
     current_documents = sample_docs
+
+
+def persist_active_index():
+    """Persists current indexed repository state to /tmp for serverless container reuse."""
+    try:
+        import json
+        if not current_repository:
+            return
+        data = {
+            "metadata": current_repository.model_dump() if hasattr(current_repository, "model_dump") else current_repository.dict(),
+            "documents": [
+                (d.model_dump() if hasattr(d, "model_dump") else d.dict())
+                for d in current_documents
+            ],
+            "chunks": [
+                (c.model_dump() if hasattr(c, "model_dump") else c.dict())
+                for c in active_index.chunks
+            ]
+        }
+        with open(SESSION_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+    except Exception:
+        pass
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initializes sample repository index so the application is immediately usable."""
+    ensure_active_index()
     yield
 
 
@@ -119,6 +169,7 @@ class AskRequest(BaseModel):
 @app.get("/api/health")
 async def health_check():
     """Returns system status, active repository, Gemma model, cache stats, and rate limit policy."""
+    ensure_active_index()
     api_key_configured = bool(os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMMA_API_KEY"))
     return {
         "status": "healthy",
@@ -137,6 +188,7 @@ async def health_check():
 @app.get("/api/repository/current")
 async def get_current_repository():
     """Returns currently loaded repository and document metadata."""
+    ensure_active_index()
     if not current_repository:
         raise HTTPException(status_code=404, detail="No repository currently indexed.")
     return {
@@ -206,6 +258,7 @@ async def index_repository(req: IndexRequest):
 
     current_repository = metadata
     current_documents = docs
+    persist_active_index()
     indexing_time = round((time.time() - start_time) * 1000, 2)
 
     return {
@@ -228,6 +281,7 @@ async def ask_question(req: AskRequest, request: Request, response: Response):
     Retrieves evidence passages and generates a grounded answer with citations.
     Enforces per-client IP rate limits (15 RPM / 5 per 10s burst) to prevent Gemini API quota exhaustion.
     """
+    ensure_active_index()
     if not active_index.chunks:
         raise HTTPException(status_code=400, detail="No documentation has been indexed yet.")
 
@@ -270,6 +324,7 @@ async def get_rate_limit_status(request: Request):
 @app.post("/api/rag/checklist", response_model=OnboardingChecklist)
 async def get_checklist():
     """Generates a 5-step contributor checklist grounded in indexed documentation."""
+    ensure_active_index()
     if not active_index.chunks or not current_repository:
         raise HTTPException(status_code=400, detail="No documentation has been indexed yet.")
 
@@ -281,6 +336,7 @@ async def get_checklist():
 @app.get("/api/evaluation/run", response_model=EvaluationReport)
 async def run_evaluation():
     """Executes the 16-question evaluation benchmark."""
+    ensure_active_index()
     if not active_index.chunks:
         raise HTTPException(status_code=400, detail="No repository documentation is indexed.")
 

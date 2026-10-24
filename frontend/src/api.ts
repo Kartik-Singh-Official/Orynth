@@ -162,6 +162,18 @@ export async function inspectRepository(url: string): Promise<{
   return res.json();
 }
 
+async function parseErrorMessage(res: Response, fallback: string): Promise<string> {
+  try {
+    const data = await res.json();
+    if (data && typeof data === "object") {
+      return data.detail || data.message || fallback;
+    }
+  } catch {
+    // Non-JSON response (e.g. 504 HTML Gateway Timeout)
+  }
+  return `${fallback} (Status ${res.status}: ${res.statusText || "Server error"})`;
+}
+
 export async function indexRepository(
   url?: string,
   useSample: boolean = false
@@ -173,15 +185,14 @@ export async function indexRepository(
   chunks_count: number;
   indexing_time_ms: number;
 }> {
-
   const res = await fetch(`${API_BASE}/repository/index`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url, use_sample: useSample }),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "Indexing failed." }));
-    throw new Error(err.detail || "Repository indexing failed.");
+    const msg = await parseErrorMessage(res, "Repository indexing failed.");
+    throw new Error(msg);
   }
   return res.json();
 }
@@ -196,8 +207,8 @@ export async function askQuestion(
     body: JSON.stringify({ question, top_k }),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "Request failed." }));
-    throw new Error(err.detail || "Failed to generate answer.");
+    const msg = await parseErrorMessage(res, "Failed to generate answer.");
+    throw new Error(msg);
   }
   return res.json();
 }
@@ -207,8 +218,8 @@ export async function fetchChecklist(): Promise<OnboardingChecklist> {
     method: "POST",
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "Failed to generate checklist." }));
-    throw new Error(err.detail || "Failed to generate onboarding checklist.");
+    const msg = await parseErrorMessage(res, "Failed to generate onboarding checklist.");
+    throw new Error(msg);
   }
   return res.json();
 }
@@ -216,8 +227,8 @@ export async function fetchChecklist(): Promise<OnboardingChecklist> {
 export async function runEvaluation(): Promise<EvaluationReport> {
   const res = await fetch(`${API_BASE}/evaluation/run`);
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "Evaluation benchmark failed." }));
-    throw new Error(err.detail || "Benchmark run failed.");
+    const msg = await parseErrorMessage(res, "Benchmark evaluation failed.");
+    throw new Error(msg);
   }
   return res.json();
 }
