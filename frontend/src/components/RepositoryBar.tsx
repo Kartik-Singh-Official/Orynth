@@ -26,6 +26,7 @@ export const RepositoryBar: React.FC<RepositoryBarProps> = ({ currentRepo: _curr
     }
     setIsInspecting(true);
     setErrorMessage(null);
+    setInspectResult(null);
     setStatusMessage("Inspecting repository via GitHub API...");
     try {
       const res = await inspectRepository(urlInput.trim());
@@ -50,7 +51,7 @@ export const RepositoryBar: React.FC<RepositoryBarProps> = ({ currentRepo: _curr
     try {
       const res = await indexRepository(useSample ? undefined : urlInput.trim(), useSample);
       setStatusMessage(`Successfully indexed ${res.files_count} files (${res.chunks_count} chunks) in ${res.indexing_time_ms}ms.`);
-      onIndexed(res.metadata, [], res.chunks_count);
+      onIndexed(res.metadata, res.documents || [], res.chunks_count);
       setInspectResult(null);
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to index repository.");
@@ -59,6 +60,7 @@ export const RepositoryBar: React.FC<RepositoryBarProps> = ({ currentRepo: _curr
       setIsIndexing(false);
     }
   };
+
 
   return (
     <div

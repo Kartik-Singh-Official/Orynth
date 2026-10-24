@@ -24,11 +24,15 @@ class SlidingWindowRateLimiter:
         self._history: Dict[str, deque] = defaultdict(deque)
 
     def _clean_old_records(self, ip: str, now: float) -> None:
-        """Removes timestamps outside the rolling 60s window."""
+        """Removes timestamps outside the rolling 60s window and cleans empty entries."""
+        if ip not in self._history:
+            return
         dq = self._history[ip]
         cutoff = now - self.window_seconds
         while dq and dq[0] <= cutoff:
             dq.popleft()
+        if not dq:
+            del self._history[ip]
 
     def check_rate_limit(self, client_ip: str) -> Tuple[bool, int, Dict[str, str]]:
         """

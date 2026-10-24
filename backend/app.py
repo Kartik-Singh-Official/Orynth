@@ -2,6 +2,7 @@
 
 import os
 import time
+from contextlib import asynccontextmanager
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 
@@ -35,24 +36,68 @@ from .rag.rate_limiter import global_rate_limiter
 from .rag.answer_cache import global_answer_cache
 from .sample_data.flask_docs import get_sample_flask_documents, SAMPLE_REPO_METADATA
 
-app = FastAPI(
-    title="Orynth RAG API",
-    description="Evidence-grounded open source contributor guide powered by Gemma 4",
-    version="1.0.0"
-)
-
-# Enable CORS for local frontend development
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # In-memory session state for currently indexed repository
 current_repository: Optional[RepositoryMetadata] = None
 current_documents: List[DocumentFile] = []
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initializes sample repository index so the application is immediately usable."""
+    global current_repository, current_documents
+    sample_docs = get_sample_flask_documents()
+    chunks = chunk_multiple_documents(sample_docs)
+    active_index.index_chunks("pallets/flask", chunks)
+    current_repository = SAMPLE_REPO_METADATA
+    current_documents = sample_docs
+    yield
+
+
+app = FastAPI(
+    title="Orynth RAG API",
+    description="Evidence-grounded open source contributor guide powered by Gemma 4",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Safe CORS Configuration
+cors_origins_env = os.environ.get("ALLOWED_ORIGINS", "")
+if cors_origins_env.strip():
+    origins = [o.strip() for o in cors_origins_env.split(",") if o.strip()]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    # Public development fallback - disable credentials when wildcard origin is used
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+
+def get_safe_client_ip(request: Request) -> str:
+    """
+    Safely resolves client IP.
+    Only inspects X-Forwarded-For if explicitly enabled via BEHIND_PROXY / TRUSTED_PROXIES,
+    preventing arbitrary client-forged IP header rate-limiting bypasses.
+    """
+    behind_proxy = os.environ.get("BEHIND_PROXY", "true").lower() in ("true", "1", "yes")
+    if behind_proxy:
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            ip = forwarded.split(",")[0].strip()
+            if ip and len(ip) <= 45:  # Valid IPv4/IPv6 length check
+                return ip
+    if request.client and request.client.host:
+        return request.client.host
+    return "127.0.0.1"
 
 
 class InspectRequest(BaseModel):
@@ -67,17 +112,6 @@ class IndexRequest(BaseModel):
 class AskRequest(BaseModel):
     question: str
     top_k: int = 3
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initializes sample repository index so the application is immediately usable."""
-    global current_repository, current_documents
-    sample_docs = get_sample_flask_documents()
-    chunks = chunk_multiple_documents(sample_docs)
-    active_index.index_chunks("pallets/flask", chunks)
-    current_repository = SAMPLE_REPO_METADATA
-    current_documents = sample_docs
 
 
 @app.get("/api/health")
@@ -175,10 +209,15 @@ async def index_repository(req: IndexRequest):
     return {
         "message": f"Successfully indexed repository '{repo_key}'.",
         "metadata": metadata,
+        "documents": [
+            {"path": d.path, "url": d.url, "size_bytes": d.size_bytes, "file_type": d.file_type}
+            for d in docs
+        ],
         "files_count": len(docs),
         "chunks_count": len(chunks),
         "indexing_time_ms": indexing_time
     }
+
 
 
 @app.post("/api/rag/ask", response_model=GroundedAnswer)
@@ -194,8 +233,8 @@ async def ask_question(req: AskRequest, request: Request, response: Response):
     if not q:
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
-    # Determine client IP (supporting reverse proxies and Vercel / Render forwarding)
-    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (request.client.host if request.client else "127.0.0.1")
+    # Determine safe client IP
+    client_ip = get_safe_client_ip(request)
 
     # Check sliding window rate limit
     allowed, retry_after, headers = global_rate_limiter.check_rate_limit(client_ip)
@@ -217,8 +256,9 @@ async def ask_question(req: AskRequest, request: Request, response: Response):
 @app.get("/api/rag/rate-limit-status")
 async def get_rate_limit_status(request: Request):
     """Returns the current rate limit status and cache performance metrics."""
-    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (request.client.host if request.client else "127.0.0.1")
+    client_ip = get_safe_client_ip(request)
     status = global_rate_limiter.get_status(client_ip)
+
     return {
         "rate_limit": status,
         "cache": global_answer_cache.stats()

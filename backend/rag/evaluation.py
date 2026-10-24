@@ -1,11 +1,13 @@
+import os
 import asyncio
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any
 
 from .models import EvaluationCase, EvaluationResult, EvaluationReport
 from .retriever import VectorIndex
 from .answer_generator import generate_grounded_answer
+
 
 
 
@@ -246,11 +248,15 @@ async def _evaluate_single_case(
 
 async def run_evaluation_benchmark(index: VectorIndex) -> EvaluationReport:
     """
-    Executes the 16-question evaluation benchmark concurrently using asyncio.gather.
-    Yields 5x-10x latency speedup while strictly enforcing accuracy metrics.
+    Executes the 16-question evaluation benchmark concurrently.
+    Throttles concurrency to 3 workers (with safe delay if live API key is present)
+    to prevent Gemini 15 RPM quota exhaustion.
     """
-    # Concurrency throttled to 6 parallel workers to maximize speed without rate exhaustion
-    sem = asyncio.Semaphore(6)
+    has_live_api = bool(os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMMA_API_KEY"))
+    # Concurrency throttled to prevent exceeding free tier quotas
+    concurrency_limit = 2 if has_live_api else 6
+    sem = asyncio.Semaphore(concurrency_limit)
+    
     tasks = [_evaluate_single_case(case, index, sem) for case in BENCHMARK_CASES]
     results: List[EvaluationResult] = await asyncio.gather(*tasks)
 
@@ -271,7 +277,7 @@ async def run_evaluation_benchmark(index: VectorIndex) -> EvaluationReport:
 
     total_q = len(BENCHMARK_CASES)
     return EvaluationReport(
-        timestamp=datetime.utcnow().isoformat() + "Z",
+        timestamp=datetime.now(timezone.utc).isoformat(),
         total_questions=total_q,
         answerable_count=answerable_count,
         unanswerable_count=unanswerable_count,
@@ -282,4 +288,5 @@ async def run_evaluation_benchmark(index: VectorIndex) -> EvaluationReport:
         results=results,
         failure_cases=failure_cases
     )
+
 

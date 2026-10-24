@@ -300,6 +300,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             <button
               key={idx}
               type="button"
+              disabled={cooldown > 0 || loading}
               onClick={() => {
                 setQuestion(promptText);
                 handleSubmit(promptText);
@@ -309,13 +310,16 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 fontSize: "0.74rem",
                 padding: "3px 10px",
                 color: idx === 3 ? "var(--accent-terracotta)" : "var(--text-secondary)",
-                cursor: "pointer",
+                cursor: cooldown > 0 ? "not-allowed" : "pointer",
+                opacity: cooldown > 0 ? 0.6 : 1,
                 border: idx === 3 ? "1px solid rgba(224, 122, 95, 0.3)" : undefined,
               }}
+              title={cooldown > 0 ? `Rate limit cooldown active. Please wait ${cooldown}s` : undefined}
             >
               {promptText}
             </button>
           ))}
+
         </div>
       </div>
 

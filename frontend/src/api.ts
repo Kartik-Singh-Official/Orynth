@@ -168,10 +168,12 @@ export async function indexRepository(
 ): Promise<{
   message: string;
   metadata: RepositoryMetadata;
+  documents: DocumentFile[];
   files_count: number;
   chunks_count: number;
   indexing_time_ms: number;
 }> {
+
   const res = await fetch(`${API_BASE}/repository/index`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

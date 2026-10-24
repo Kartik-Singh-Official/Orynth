@@ -88,11 +88,30 @@ export function getSupabaseCredentials(): { url: string; hasKey: boolean; isCust
 }
 
 export function setCustomSupabaseCredentials(url: string, anonKey: string): void {
+  const cleanKey = anonKey.trim();
+  // Guard against accidental entry of Supabase service_role secret keys
+  try {
+    const parts = cleanKey.split(".");
+    if (parts.length === 3) {
+      const payload = JSON.parse(atob(parts[1]));
+      if (payload.role === "service_role") {
+        throw new Error(
+          "Security Violation: You provided a Supabase 'service_role' secret key. Only public 'anon' keys are permitted in client browser applications."
+        );
+      }
+    }
+  } catch (err: any) {
+    if (err.message && err.message.includes("Security Violation")) {
+      throw err;
+    }
+  }
+
   localStorage.setItem(STORAGE_URL_KEY, url.trim());
-  localStorage.setItem(STORAGE_ANON_KEY, anonKey.trim());
+  localStorage.setItem(STORAGE_ANON_KEY, cleanKey);
   clientInstance = null; // force re-instantiation
   getSupabase();
 }
+
 
 export function clearCustomSupabaseCredentials(): void {
   localStorage.removeItem(STORAGE_URL_KEY);

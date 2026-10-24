@@ -1,6 +1,8 @@
 """Safe public GitHub repository loader with SSRF protection and document discovery."""
 
+import os
 import re
+import asyncio
 import urllib.parse
 from typing import List, Tuple, Optional, Dict
 import httpx
@@ -39,6 +41,18 @@ MAX_FILES_LIMIT = 25
 MAX_FILE_SIZE_BYTES = 250_000  # 250 KB
 
 
+def _get_github_headers() -> Dict[str, str]:
+    """Generates GitHub REST API request headers, applying GITHUB_TOKEN if configured."""
+    headers = {
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "Orynth-RAG-Agent"
+    }
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    if token and token.strip():
+        headers["Authorization"] = f"Bearer {token.strip()}"
+    return headers
+
+
 def parse_and_validate_github_url(url_or_slug: str) -> Tuple[str, str]:
     """
     Safely validates that the input is a valid public GitHub repository.
@@ -50,7 +64,10 @@ def parse_and_validate_github_url(url_or_slug: str) -> Tuple[str, str]:
     # Handle shorthand owner/repo (e.g. 'pallets/flask')
     if "/" in clean_input and not clean_input.startswith("http") and not clean_input.startswith("//"):
         parts = clean_input.split("/")
-        if len(parts) == 2 and all(re.match(r"^[a-zA-Z0-9_\-\.]+$", p) for p in parts):
+        if len(parts) == 2 and all(
+            re.match(r"^[a-zA-Z0-9_\-\.]+$", p) and p not in (".", "..") and not p.startswith(".")
+            for p in parts
+        ):
             owner = parts[0]
             repo = parts[1].removesuffix(".git")
             return owner, repo
@@ -72,6 +89,9 @@ def parse_and_validate_github_url(url_or_slug: str) -> Tuple[str, str]:
         raise ValueError("Invalid GitHub repository URL format. Example: https://github.com/pallets/flask")
 
     owner, repo = match.groups()
+    if owner in (".", "..") or repo in (".", "..") or owner.startswith("."):
+        raise ValueError("Invalid repository owner or name.")
+
     repo = repo.removesuffix(".git")
     return owner, repo
 
@@ -79,7 +99,7 @@ def parse_and_validate_github_url(url_or_slug: str) -> Tuple[str, str]:
 async def fetch_repository_metadata(owner: str, repo: str) -> RepositoryMetadata:
     """Fetches repository metadata from GitHub REST API with safe fallback."""
     api_url = f"https://api.github.com/repos/{owner}/{repo}"
-    headers = {"Accept": "application/vnd.github.v3+json", "User-Agent": "Orynth-RAG-Agent"}
+    headers = _get_github_headers()
 
     async with httpx.AsyncClient(timeout=10.0) as client:
         try:
@@ -134,10 +154,11 @@ async def discover_documentation_files(owner: str, repo: str, default_branch: st
     """
     Discovers and fetches documentation files from the public repository.
     Uses GitHub Git Trees API when available, and falls back to checking known priority paths.
+    Fetches raw documentation content concurrently for optimal performance.
     """
     discovered_files: List[DocumentFile] = []
     seen_paths = set()
-    headers = {"Accept": "application/vnd.github.v3+json", "User-Agent": "Orynth-RAG-Agent"}
+    headers = _get_github_headers()
 
     async with httpx.AsyncClient(timeout=15.0) as client:
         # Step 1: Try Git Tree API to discover docs in one request
@@ -164,26 +185,32 @@ async def discover_documentation_files(owner: str, repo: str, default_branch: st
             if p not in seen_paths and len(seen_paths) < MAX_FILES_LIMIT:
                 seen_paths.add(p)
 
-        # Step 3: Fetch file content from raw.githubusercontent.com
-        for path in seen_paths:
+        # Step 3: Fetch file content concurrently from raw.githubusercontent.com
+        sem = asyncio.Semaphore(8)
+
+        async def fetch_file(path: str) -> Optional[DocumentFile]:
             raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/{default_branch}/{path}"
             try:
-                content_resp = await client.get(raw_url)
-                if content_resp.status_code == 200:
-                    text = content_resp.text
-                    # Check size limit
-                    if len(text.encode("utf-8")) <= MAX_FILE_SIZE_BYTES and text.strip():
-                        file_type = "markdown" if path.endswith((".md", ".markdown")) else "text"
-                        discovered_files.append(
-                            DocumentFile(
+                async with sem:
+                    content_resp = await client.get(raw_url)
+                    if content_resp.status_code == 200:
+                        text = content_resp.text
+                        if len(text.encode("utf-8")) <= MAX_FILE_SIZE_BYTES and text.strip():
+                            file_type = "markdown" if path.endswith((".md", ".markdown")) else "text"
+                            return DocumentFile(
                                 path=path,
                                 url=f"https://github.com/{owner}/{repo}/blob/{default_branch}/{path}",
                                 size_bytes=len(text.encode("utf-8")),
                                 raw_content=text,
                                 file_type=file_type
                             )
-                        )
             except Exception:
-                continue
+                pass
+            return None
+
+        tasks = [fetch_file(p) for p in seen_paths]
+        fetched_results = await asyncio.gather(*tasks)
+        discovered_files = [f for f in fetched_results if f is not None]
 
     return discovered_files
+
