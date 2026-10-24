@@ -27,10 +27,12 @@ interface AuthContextType {
   openSavedWorkDrawer: () => void;
   closeSavedWorkDrawer: () => void;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, fullName?: string) => Promise<void>;
+  signUp: (email: string, password: string, fullName?: string) => Promise<any>;
   signOut: () => Promise<void>;
+  continueAsGuest: () => void;
   refreshSavedCounts: () => Promise<void>;
 }
+
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -122,9 +124,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signUp = async (email: string, password: string, fullName?: string) => {
-    await signUpWithEmail(email, password, fullName);
+    const data = await signUpWithEmail(email, password, fullName);
     await refreshUser();
+    if (data?.session) {
+      closeAuthModal();
+    }
+    return data;
+  };
+
+  const continueAsGuest = () => {
+    const mockUser: User = {
+      id: "guest-" + Math.random().toString(36).substring(2, 9),
+      app_metadata: {},
+      user_metadata: { full_name: "Guest Contributor" },
+      aud: "authenticated",
+      created_at: new Date().toISOString(),
+      email: "guest@orynth.local",
+    };
+    localStorage.setItem("orynth_local_user", JSON.stringify(mockUser));
+    setUser(mockUser);
     closeAuthModal();
+    refreshSavedCounts();
   };
 
   const signOut = async () => {
@@ -154,12 +174,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signIn,
         signUp,
         signOut,
+        continueAsGuest,
         refreshSavedCounts,
       }}
     >
       {children}
     </AuthContext.Provider>
   );
+
 };
 
 export function useAuth(): AuthContextType {

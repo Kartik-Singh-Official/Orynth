@@ -30,6 +30,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onOpenLegal }) => {
     openAuthModal,
     signIn,
     signUp,
+    continueAsGuest,
     isConfigured,
   } = useAuth();
 
@@ -79,14 +80,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onOpenLegal }) => {
         if (password.length < 6) {
           throw new Error("Password should be at least 6 characters.");
         }
-        await signUp(email, password, fullName);
+        const res = await signUp(email, password, fullName);
+        if (res?.user && !res?.session) {
+          setSuccessMsg(
+            `Account created! A confirmation link was sent to ${email}. Please verify your email before logging in, or continue as Guest below.`
+          );
+        }
       }
     } catch (err: any) {
-      setErrorMsg(err.message || "Authentication failed. Please check your credentials.");
+      const msg = err.message || "";
+      if (msg.toLowerCase().includes("email not confirmed")) {
+        setErrorMsg(
+          "Your email address is not confirmed yet. Please click the confirmation link sent to your inbox by Supabase, or continue as Guest below."
+        );
+      } else if (msg.toLowerCase().includes("invalid login credentials")) {
+        setErrorMsg("Invalid email or password. Please verify your credentials or create a new account.");
+      } else {
+        setErrorMsg(msg || "Authentication failed. Please check your credentials or network connection.");
+      }
     } finally {
       setSubmitting(false);
     }
   };
+
 
   const handleSaveConfig = (e: React.FormEvent) => {
     e.preventDefault();
@@ -612,6 +628,38 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onOpenLegal }) => {
                 {submitting && <Loader2 size={16} className="spin" />}
                 {activeTab === "login" ? "Sign In" : "Create Contributor Account"}
               </button>
+
+              {/* Divider & One-Click Guest Access */}
+              <div style={{ display: "flex", alignItems: "center", margin: "0.85rem 0 0.5rem 0", gap: "0.5rem" }}>
+                <div style={{ flex: 1, height: 1, backgroundColor: "rgba(255, 255, 255, 0.08)" }} />
+                <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>or</span>
+                <div style={{ flex: 1, height: 1, backgroundColor: "rgba(255, 255, 255, 0.08)" }} />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => continueAsGuest()}
+                style={{
+                  width: "100%",
+                  padding: "0.6rem",
+                  backgroundColor: "rgba(255, 255, 255, 0.04)",
+                  color: "var(--text-primary)",
+                  fontWeight: 500,
+                  border: "1px solid rgba(255, 255, 255, 0.12)",
+                  borderRadius: 6,
+                  fontSize: "0.8rem",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "0.45rem",
+                  transition: "all 0.2s var(--ease-apple)",
+                }}
+              >
+                <UserIcon size={14} color="var(--accent-brass)" />
+                <span>Continue as Guest (Instant Access without Email)</span>
+              </button>
+
 
               <div
                 style={{
