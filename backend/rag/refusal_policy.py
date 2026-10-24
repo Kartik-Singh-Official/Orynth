@@ -4,7 +4,9 @@ from typing import List, Tuple, Optional
 from .models import RetrievedPassage, Citation
 
 # Minimum cosine similarity threshold below which questions are declined without calling the LLM
-MIN_RELEVANCE_THRESHOLD = 0.32
+# Calibrated for gemini-embedding-001 distribution (answerable: 0.62-0.80, unanswerable: 0.44-0.57)
+MIN_RELEVANCE_THRESHOLD = 0.58
+
 
 STANDARD_REFUSAL_MESSAGE = (
     "I could not verify that from this repository's documentation. "

@@ -114,6 +114,8 @@ class AskRequest(BaseModel):
     top_k: int = 3
 
 
+@app.get("/api")
+@app.get("/api/")
 @app.get("/api/health")
 async def health_check():
     """Returns system status, active repository, Gemma model, cache stats, and rate limit policy."""
