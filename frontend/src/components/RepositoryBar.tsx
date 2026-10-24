@@ -7,8 +7,8 @@ interface RepositoryBarProps {
   onIndexed: (metadata: RepositoryMetadata, docs: DocumentFile[], chunksCount: number) => void;
 }
 
-export const RepositoryBar: React.FC<RepositoryBarProps> = ({ currentRepo, onIndexed }) => {
-  const [urlInput, setUrlInput] = useState<string>(currentRepo?.url || "https://github.com/pallets/flask");
+export const RepositoryBar: React.FC<RepositoryBarProps> = ({ currentRepo: _currentRepo, onIndexed }) => {
+  const [urlInput, setUrlInput] = useState<string>("");
   const [isInspecting, setIsInspecting] = useState(false);
   const [isIndexing, setIsIndexing] = useState(false);
   const [inspectResult, setInspectResult] = useState<{
@@ -20,7 +20,10 @@ export const RepositoryBar: React.FC<RepositoryBarProps> = ({ currentRepo, onInd
 
   const handleInspect = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!urlInput.trim()) return;
+    if (!urlInput.trim()) {
+      setErrorMessage("Please paste a public GitHub repository link (e.g. https://github.com/facebook/react).");
+      return;
+    }
     setIsInspecting(true);
     setErrorMessage(null);
     setStatusMessage("Inspecting repository via GitHub API...");
@@ -37,6 +40,10 @@ export const RepositoryBar: React.FC<RepositoryBarProps> = ({ currentRepo, onInd
   };
 
   const handleIndex = async (useSample: boolean = false) => {
+    if (!useSample && !urlInput.trim()) {
+      setErrorMessage("Please paste a public GitHub repository link first (e.g. https://github.com/owner/repo), or click 'Sample Data' to explore Flask.");
+      return;
+    }
     setIsIndexing(true);
     setErrorMessage(null);
     setStatusMessage(useSample ? "Indexing sample dataset (pallets/flask)..." : "Fetching files, generating chunks, and computing local embeddings...");
@@ -86,7 +93,7 @@ export const RepositoryBar: React.FC<RepositoryBarProps> = ({ currentRepo, onInd
               type="text"
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
-              placeholder="Search or enter public GitHub repository (e.g. https://github.com/pallets/flask)"
+              placeholder="Paste your GitHub repository link here (e.g. https://github.com/owner/repo)..."
               style={{
                 width: "100%",
                 background: "transparent",
